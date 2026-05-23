@@ -1,0 +1,30 @@
+# .dockerignore — trims the build context sent to the container engine.
+#
+# IMPORTANT: this does NOT shrink the image. Image size is dominated by
+# vista-m/Packages (~6.1 GB of FOIA routines + globals) which the Dockerfile
+# COPYs and VistA needs — inherent to Strategy A. What this removes is
+# build-context bloat (notably the ~934 MB .git, which now carries the VistA-M
+# submodule's object store) and files the build never uses, so each `build`
+# ships far less data to the engine. To actually shrink the image, subset the
+# VistA-M packages (a separate follow-up).
+
+# Git metadata — not needed by the build; .git holds the submodule object store.
+.git
+.gitmodules
+.gitattributes
+**/.git
+**/.gitattributes
+
+# Project docs & meta — not COPYed into the image.
+docs/
+*.md
+README*
+
+# Local build / orchestration files — not COPYed into the image.
+Makefile
+docker-compose.yml
+
+# OS / editor cruft.
+**/.DS_Store
+*.swp
+*.swo
