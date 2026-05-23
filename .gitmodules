@@ -1,0 +1,4 @@
+[submodule "vista-m"]
+	path = vista-m
+	url = https://github.com/WorldVistA/VistA-M.git
+	shallow = true

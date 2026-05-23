@@ -25,7 +25,10 @@ IRIS_TAG ?= latest-cd-arm64
 endif
 export IRIS_TAG
 
-# Pinned FOIA VistA-M sources (§5). TODO: pin VISTA_M_TAG to a dated FOIA tag.
+# VistA-M sources (§5) are vendored as a pinned git submodule at vista-m/ -- the
+# submodule gitlink records the exact commit (the pin). VISTA_M_* below are used
+# only by the non-submodule clone fallback in `sources`. TODO: bump the
+# submodule deliberately when re-syncing with upstream (§13).
 VISTA_M_REPO ?= https://github.com/WorldVistA/VistA-M.git
 VISTA_M_TAG  ?= master
 VISTA_M_DIR  ?= vista-m
@@ -40,12 +43,12 @@ HL7_PORT ?= 5026
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
 
-sources: ## Fetch/verify the pinned VistA-M sources into $(VISTA_M_DIR)/
-	@if [ -d "$(VISTA_M_DIR)/.git" ]; then \
-	  echo ">> $(VISTA_M_DIR): fetching $(VISTA_M_TAG)"; \
-	  git -C "$(VISTA_M_DIR)" fetch --depth 1 origin "$(VISTA_M_TAG)" && git -C "$(VISTA_M_DIR)" checkout -q FETCH_HEAD; \
+sources: ## Init/update the pinned VistA-M submodule into $(VISTA_M_DIR)/ (shallow)
+	@if git config -f .gitmodules --get submodule.$(VISTA_M_DIR).url >/dev/null 2>&1; then \
+	  echo ">> updating submodule $(VISTA_M_DIR) (shallow, pinned)"; \
+	  git submodule update --init --depth 1 -- "$(VISTA_M_DIR)"; \
 	elif [ -n "$$(ls -A '$(VISTA_M_DIR)' 2>/dev/null)" ]; then \
-	  echo ">> $(VISTA_M_DIR): vendored (non-git); using as-is"; \
+	  echo ">> $(VISTA_M_DIR): present (vendored); using as-is"; \
 	else \
 	  echo ">> cloning $(VISTA_M_REPO) @ $(VISTA_M_TAG)"; \
 	  git clone --depth 1 --branch "$(VISTA_M_TAG)" "$(VISTA_M_REPO)" "$(VISTA_M_DIR)"; \
