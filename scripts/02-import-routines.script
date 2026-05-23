@@ -1,0 +1,13 @@
+// Step 3 -- import + compile VistA M routines.
+// Spec: docs/vista-iris-container-spec-v2.md §8 step 3.
+// Standalone/debug run:  iris session IRIS < scripts/02-import-routines.script
+zn "VISTA"
+
+// Bulk-import every Packages/**/Routines/*.m source and compile.
+//   "c" = compile, "k" = keep source, recurse = 1
+// The OSEHRA path uses ^%RI choosing the *Cache* routine write type -- which is
+// the correct, valid choice for IRIS (it presents the Cache-compatible OS
+// interface, §5.2). $SYSTEM.OBJ.ImportDir is the IRIS-native equivalent.
+set sc = $system.OBJ.ImportDir("/opt/vista/vista-m","*.m","ck",.err,1)
+if 'sc do $system.OBJ.DisplayError(sc) halt
+halt
