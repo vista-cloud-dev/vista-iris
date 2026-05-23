@@ -1,0 +1,6 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# VistA install build logs (written to /tmp by default; ignore any stray copies)
+/scripts/**/*.log
