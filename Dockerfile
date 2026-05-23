@@ -16,29 +16,37 @@
 ARG IRIS_TAG=latest-cd
 FROM intersystems/irishealth-community:${IRIS_TAG}
 
-# IRIS images run as the unprivileged `irisowner` user. Stage the VistA sources
-# and install scripts under a workdir it owns.
+# IRIS images run as the unprivileged `irisowner` user. As root, add Python 3 +
+# pexpect: the interactive VistA site build runs from a cleaned OSEHRA Python
+# fork (scripts/osehra/, spec §5.4) that drives `iris session` over pexpect.
 USER root
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-pexpect \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /opt/vista
 
 # Prerequisites in the build context (deliverables per spec §12):
 #   vista-m/   pinned WorldVistA/VistA-M sources (routines *.m + globals *.zwr)
-#   scripts/   cleaned, IRIS-only fork of the OSEHRA install orchestration
-#              (spec §5.4: no GT.M/YottaDB, no Cache-2011 installer, no EWD,
-#              no fakes, no dead guards). install.script is the entry point.
+#   scripts/   bootstrap.script (IRIS-native ns/import) + the cleaned, IRIS-only
+#              Python fork of the OSEHRA site build (osehra/, spec §5.4: no
+#              GT.M/YottaDB, no Cache-2011 installer, no EWD, no fakes).
 COPY --chown=irisowner:irisowner vista-m/  /opt/vista/vista-m/
 COPY --chown=irisowner:irisowner scripts/  /opt/vista/scripts/
 
 USER irisowner
 
-# Create the VISTA database/namespace + routine/global mappings, import
-# routines, load globals, run post-install (institution, users, OS tables,
-# TaskMan, RPC Broker on 9430, HL7 Link Manager on 5026), and load Tier-1
-# sample data — all driven by the orchestration entry point. The build fails
-# loudly if any step errors, so a broken install never produces a runnable
-# image (spec §11.3 / §5.4).
+# Build the instance (Strategy A): bootstrap the VISTA namespace + import the
+# FOIA routines/globals (bootstrap.script), then run the interactive site build
+# from the OSEHRA Python fork — OS-init, post-install (institution, users,
+# TaskMan, RPC Broker on 9430, HL7 Link Manager on 5026), and Tier-1 sample
+# data. Each `&&` step is fail-loud, so a broken install never produces a
+# runnable image (spec §11.3 / §5.4).
 RUN iris start IRIS quietly \
- && iris session IRIS < /opt/vista/scripts/install.script \
+ && iris session IRIS < /opt/vista/scripts/bootstrap.script \
+ && python3 /opt/vista/scripts/osehra/01_osinit.py \
+ && python3 /opt/vista/scripts/osehra/02_postinstall.py \
+ && python3 /opt/vista/scripts/osehra/03_sampledata.py \
  && iris stop IRIS quietly
 
 # The base image already exposes 1972 (superserver / RPC / xDBC) and 52773

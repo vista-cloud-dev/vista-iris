@@ -372,11 +372,11 @@ Must define a single service that:
 A top-level `Makefile` (§7.1) that is the portable single entry point for `sources`, `build`, `up`, `down`, `verify`, `lint`, `test`, `ci`, `clean`; defaults `ENGINE=podman` with a one-variable Docker override; and whose `ci` target *is* the CI/CD chain (so local and CI behavior are identical and reproducible).
 
 ### 11.4 Install orchestration (`scripts/`) — the cleaned fork
-The cleaned IRIS-only fork (§5.4) provides a top-level orchestration entry point (invoked at build under Strategy A) that performs §8 in order by delegating to per-step scripts (§12). Requirements:
-- Namespace, database, and routine/global mappings established first (via configuration utilities or a CPF merge file).
-- Routines imported & compiled, then globals loaded, then OS-interface init, then post-install (institution, users, OS tables, TaskMan, **RPC Broker on 9430**, **HL7 Link Manager on 5026**), then Tier-1 sample data.
-- Every step **idempotent**; orchestration **fails loudly** (non-zero exit) on any import/compile/post-install error.
-- **No fakes, no dead guards, no non-IRIS code** (§5.4).
+The cleaned IRIS-only fork (§5.4) splits the install into an IRIS-native bootstrap and an interactive site build, because the proven VistA site build is a branching, expect-driven dialog that a flat input stream cannot drive reliably:
+- **`scripts/bootstrap.script`** (fed to `iris session IRIS`): establish the VISTA database, namespace, and routine/global mappings (via the configuration utilities or a CPF merge), then import & compile the routines and load the globals (§8 steps 1–4). Fail-loud.
+- **`scripts/osehra/`** — a cleaned, IRIS-only **Python 3 fork** of the OSEHRA expect driver (`OSEHRAHelper`/`OSEHRASetup`, run over `iris session` via pexpect). It performs OS-interface init (`^DINIT` → MUMPS OPERATING SYSTEM = CACHE, + `^ZUSET` — the proven path, which supersedes the manual `^ZTMGRSET`), then post-install (institution, users, TaskMan, **RPC Broker on 9430**, **HL7 Link Manager on 5026**), then Tier-1 sample data (§8 steps 5–9, §9).
+- **No fakes, no dead guards, no non-IRIS code** (§5.4): the GT.M / Windows-telnet / SSH connection classes, the Caché-2011 installer, EWD.js, and the dashboard/coverage machinery are removed; modernized to Python 3 + `iris session` (not the legacy `irissession`).
+- Each step **fails loudly** (non-zero exit). The build runs **once** against a clean image (Strategy A); re-running the site build against an already-built instance is **not** idempotent (it would hit "already exists" prompts) — rebuild from clean instead.
 
 ---
 
@@ -390,16 +390,19 @@ vista-iris/
 ├── Makefile                               ← portable build + CI/CD chain (§7.1)
 ├── Dockerfile
 ├── docker-compose.yml                     ← podman compose / docker compose
+├── .dockerignore                          ← trims build context (esp. the .git store)
 ├── scripts/                               ← cleaned, IRIS-only fork of the OSEHRA
 │   │                                        import/config code (§5.4)
-│   ├── install.script                     ← orchestration entrypoint
-│   ├── 01-namespace.script                ← DB/NS + mappings (or CPF merge)
-│   ├── 02-import-routines.script
-│   ├── 03-load-globals.script
-│   ├── 04-osinit.m                        ← ^ZTMGRSET / OS-interface init
-│   ├── 05-postinstall.m                   ← institution/users/TaskMan/RPC Broker/HL7
-│   └── 06-sample-data.m                   ← Tier-1 patients/clinics
-├── vista-m/                               ← vendored or submodule: WorldVistA/VistA-M (pinned)
+│   ├── bootstrap.script                   ← IRIS-native: namespace + mappings,
+│   │                                        import routines, load globals (§8 1–4)
+│   └── osehra/                            ← cleaned Python 3 expect-fork (§5)
+│       ├── helper.py                      ← `iris session` expect driver
+│       ├── setup.py                       ← VistA site-build steps
+│       ├── config.py                      ← env-overridable settings + connect()
+│       ├── 01_osinit.py                   ← DINIT/ZUSET + devices + MPI (§8 5)
+│       ├── 02_postinstall.py              ← institution/users/TaskMan/RPC 9430/HL7 5026 (§8 6–9)
+│       └── 03_sampledata.py               ← Tier-1 users/clinics/ward/patients (§9)
+├── vista-m/                               ← submodule: WorldVistA/VistA-M (pinned, shallow)
 └── README.md                              ← quickstart (make up / make verify)
 ```
 
