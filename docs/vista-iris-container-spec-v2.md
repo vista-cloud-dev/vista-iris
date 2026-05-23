@@ -449,7 +449,7 @@ Once implemented, standing up the instance is `make`-driven and ephemeral (exact
 - OSEHRA VistA M components — [github.com/WorldVistA/VistA-M](https://github.com/WorldVistA/VistA-M)
 - OSEHRA VistA build/install automation (forked & cleaned per §5.4) — [github.com/WorldVistA/VistA](https://github.com/WorldVistA/VistA): IRIS-aware import/config path (`Testing/Setup/ImportRG.cmake`, `Testing/Setup/{Initialize,RoutineImport,GlobalImport,PostImportSetupScript,ClinicSetup}.py.in`, `Python/vista/{OSEHRAHelper,OSEHRASetup}.py`); option-bearing installers audited & removed (`Scripts/Install/{Ubuntu,RHEL}/autoInstaller.sh`, `Scripts/Install/Cache/install.sh`, `Scripts/Install/EWD/ewdjs.sh`); import docs (`Documentation/{InstallCache,ImportCache,ConfigureCache,AutomatedVistAConfiguration}.rst`).
 - VistA M development toolchain & VA TRM status (VS Code, XINDEX, M-Unit, KIDS) — [`vista-dev-iris-tooling.md`](vista-dev-iris-tooling.md)
-- VA TRM MUMPS/M tools survey — [`va-trm-mumps-tools.md`](va-trm-mumps-tools.md)
+- VA TRM MUMPS/M tools survey — [`va-trm-m-tools.md`](va-trm-m-tools.md)
 - How the VA hosts/manages VistA in AWS GovCloud — [`vaec-vista-hosting-general.md`](vaec-vista-hosting-general.md)
 - VistA on Caché/IRIS discussion — [InterSystems Developer Community](https://community.intersystems.com/post/mumps-cache-vista)
 - Install VistA on GT.M/YottaDB (manual reference) — [hardhats.org](https://www.hardhats.org/projects/New/InstallVistAOnGTM.html)
