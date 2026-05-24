@@ -39,7 +39,8 @@ RUN iris start IRIS quietly \
  && python3 /opt/vista/scripts/osehra/prepare.py /opt/vista/vista-m /opt/vista/scripts/osehra/m -o /tmp/vista-build \
  && python3 /opt/vista/scripts/osehra/00_import.py \
  && rm -rf /tmp/vista-build \
- && iris stop IRIS quietly
+ && iris stop IRIS quietly \
+ && rm -f /usr/irissys/mgr/journal/20*
 
 # --- Layer 2 (iterated): interactive VistA site build -------------------------
 # OS-init, post-install (institution, users, RPC Broker 9430), Tier-1 sample
@@ -53,7 +54,13 @@ RUN iris start IRIS quietly \
  && python3 /opt/vista/scripts/osehra/02_postinstall.py \
  && python3 /opt/vista/scripts/osehra/03_sampledata.py \
  && iris session IRIS -U %SYS < /opt/vista/scripts/startup.script \
- && iris stop IRIS quietly
+ && iris stop IRIS quietly \
+ && rm -f /usr/irissys/mgr/journal/20*
+
+# Note: each layer purges IRIS journal files after a clean stop. The bulk
+# global import journals heavily (GBs), which otherwise bloats the image and
+# overruns disk during the layer commit; after a clean shutdown the data is in
+# the .DAT and the journals aren't needed (IRIS recreates them on next start).
 
 # The base image already exposes 1972 (superserver / RPC / xDBC) and 52773
 # (Management Portal + FHIR REST). Document the VistA-configured listeners:

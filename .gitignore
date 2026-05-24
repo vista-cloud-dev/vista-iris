@@ -4,3 +4,6 @@ __pycache__/
 
 # VistA install build logs (written to /tmp by default; ignore any stray copies)
 /scripts/**/*.log
+
+# Personal Claude Code settings (machine-specific paths + permission/sandbox grants)
+.claude/settings.local.json
