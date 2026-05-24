@@ -43,8 +43,14 @@ VISTA_M_DIR  ?= vista-m
 RPC_PORT ?= 9430
 HL7_PORT ?= 5026
 
+# Free disk (GB) the preflight requires. A from-scratch build (image ~20 GB,
+# import-layer commit ~35 GB transient peak) needs ~40; running a prebuilt image
+# needs far less (overridden for up/run below).
+MIN_DISK_GB ?= 40
+export MIN_DISK_GB
+
 .DEFAULT_GOAL := help
-.PHONY: help sources build up down verify lint test ci clean pull run stop
+.PHONY: help preflight fresh sources build up down verify lint test ci clean pull run stop
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
@@ -60,10 +66,16 @@ sources: ## Init/update the pinned VistA-M submodule into $(VISTA_M_DIR)/ (shall
 	  git clone --depth 1 --branch "$(VISTA_M_TAG)" "$(VISTA_M_REPO)" "$(VISTA_M_DIR)"; \
 	fi
 
-build: sources ## Build the OCI image (Strategy A) on IRIS_TAG=$(IRIS_TAG)
+preflight: ## Pre-install check: engine, disk, ports, conflicts, prior installs
+	@bash scripts/preflight.sh
+
+fresh: ## Preflight + CLEAN: stop other containers, remove prior vista-iris (fresh install)
+	@bash scripts/preflight.sh --clean
+
+build: preflight sources ## Build the OCI image (Strategy A) on IRIS_TAG=$(IRIS_TAG)
 	$(COMPOSE) build
 
-up: ## Start the instance (detached)
+up: preflight ## Start the instance (detached)
 	$(COMPOSE) up -d
 
 down: ## Stop and remove the instance
@@ -75,10 +87,13 @@ down: ## Stop and remove the instance
 pull: ## Pull/refresh the prebuilt published image from GHCR
 	$(ENGINE) pull $(PUBLISHED_IMAGE):$(PUBLISHED_TAG)
 
-run: ## Run the prebuilt image (ephemeral; the streamlined quickstart)
+run: preflight ## Run the prebuilt image (ephemeral; the streamlined quickstart)
 	$(ENGINE) run -d --name $(CONTAINER) \
 	  -p 1972:1972 -p 52773:52773 -p $(RPC_PORT):$(RPC_PORT) -p $(HL7_PORT):$(HL7_PORT) \
 	  $(PUBLISHED_IMAGE):$(PUBLISHED_TAG)
+
+# Running a prebuilt image needs far less free disk than a from-scratch build.
+up run: MIN_DISK_GB := 25
 
 stop: ## Stop & remove the `run` container
 	-$(ENGINE) rm -f $(CONTAINER)
