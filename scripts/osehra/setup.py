@@ -886,7 +886,9 @@ def addDoctor(VistA, name, init, SSN, sex, AC, VC1):
 
 def addNurse(VistA, name, init, SSN, sex, AC, VC1):
     screenman = '\r\r\r\r\r^PRIMARY MENU OPTION\rXUCOR\r^SECONDARY MENU OPTIONS\rPSB GUI CONTEXT\rY\r\r\r\rGMPL MGT MENU\rY\r\r\r\rOR CPRS GUI CHART\rY\r\r\r\rGMV V/M GUI\rY\r\r\r\r^Want to edit ACCESS CODE\rY\r' + AC + '\r' + AC + '\r^Want to edit VERIFY CODE\rY\r' + VC1 + '\r' + VC1 + '\rVISTA HEALTH CARE\rY\r\r\r\r\r^SERVICE/SECTION\rIRM\r^Language\r\r289\rY\rY\rT-1\r\r^RESTRICT PATIENT SELECTION\r0\r\rCOR\rY\rT-1\r\r^MULTIPLE SIGN-ON\r1\r1\r99\r^\rS\rE'
-    keys = ['PSB MANAGER', 'PROVIDER\r1', 'ORELSE\r']
+    # No trailing CR on the last key: _addUser already runs the uniform
+    # "Another key" -> "" cycle, so an extra CR would desync the dialog.
+    keys = ['PSB MANAGER', 'PROVIDER\r1', 'ORELSE']
     _addUser(VistA, name, init, SSN, sex, AC, VC1, screenman, keys)
 
 
