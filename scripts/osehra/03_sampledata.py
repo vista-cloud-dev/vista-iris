@@ -13,9 +13,53 @@ import os
 import sys
 import time
 
+import pexpect
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config  # noqa: E402
 import setup  # noqa: E402
+
+
+def _release(v):
+    """Climb out of any menu, halt the session cleanly, and wait for it to exit.
+
+    IRIS Community caps concurrent processes. Force-closing a session leaves its
+    license slot held until IRIS notices the dead process, so rapid reconnects
+    hit <LICENSE LIMIT EXCEEDED>. We send a burst of '^' to escape any menu/login
+    back to the programmer prompt, then 'h' to halt; waiting for EOF lets the
+    process deregister its license synchronously, freeing the slot for the next
+    connection. Bounded (no multiwait loop) so it can never hang the build.
+    """
+    try:
+        for _ in range(10):
+            v.write("^")
+        v.write("h")
+        v.connection.expect(pexpect.EOF, timeout=25)
+    except Exception:
+        pass
+    try:
+        v.connection.close(force=True)
+    except Exception:
+        pass
+    time.sleep(3)
+
+
+def _connect(logname):
+    """Connect, retrying through a transient <LICENSE LIMIT EXCEEDED>.
+
+    IRIS Community caps concurrent processes; a just-released session takes a
+    moment to free its license slot, so a fresh connect can transiently fail.
+    Retry with a pause until a slot frees up, instead of aborting the build.
+    """
+    last = None
+    for attempt in range(12):
+        try:
+            return config.connect(logname)
+        except Exception as exc:
+            last = exc
+            sys.stderr.write("connect retry %d for %s: %s\n" % (attempt + 1, logname, exc))
+            time.sleep(15)
+    raise last
 
 
 class Clinic(object):
@@ -202,7 +246,7 @@ PATIENTS = [
 
 
 def main():
-    V = config.connect("03_sampledata.log")
+    V = _connect("03_sampledata.log")
     setup.setupNursLocation(V, "FAKE NURWARD")
     setup.setupStrepTest(V)
     setup.registerVitalsCPRS(V)
@@ -225,31 +269,31 @@ def main():
     setup.createOrderMenu(V)
     setup.addAllergiesPermission(V)
     setup.addTemplatePermission(V, "MS")
-    V.close()
+    _release(V)
 
     # Turn off access/verify expiration (fresh connection, programmer access).
-    V2 = config.connect("03_verifycodes.log")
+    V2 = _connect("03_verifycodes.log")
     setup.setNonExpiringCodes(V2, ["ALEXANDER,ROBERT", 'SMITH,MARY', "CLERK,JOE"])
-    V2.close()
+    _release(V2)
 
     time.sleep(10)
 
     # Each e-signature is set by signing in as that user. Open one session at a
-    # time and close it -- IRIS Community caps concurrent processes.
-    Vd = config.connect("03_sig_doc.log")
+    # time and release it -- IRIS Community caps concurrent processes.
+    Vd = _connect("03_sig_doc.log")
     setup.setupElectronicSignature(Vd, "fakedoc1", '2Doc!@#$', '1Doc!@#$', 'ROBA123')
-    Vd.close()
-    Vn = config.connect("03_sig_nurse.log")
+    _release(Vd)
+    Vn = _connect("03_sig_nurse.log")
     setup.setupElectronicSignature(Vn, "fakenurse1", "2Nur!@#$", "1Nur!@#$", "MARYS123")
-    Vn.close()
-    Vc = config.connect("03_sig_clerk.log")
+    _release(Vn)
+    Vc = _connect("03_sig_clerk.log")
     setup.setupElectronicSignature(Vc, "fakeclerk1", "2Cle!@#$", "1Cle!@#$", "CLERKJ123")
-    Vc.close()
+    _release(Vc)
 
     # Register the sample patients (fresh connection).
-    Vp = config.connect("03_patients.log")
+    Vp = _connect("03_patients.log")
     setup.addPatient(Vp, PATIENTS)
-    Vp.close()
+    _release(Vp)
 
 
 if __name__ == "__main__":

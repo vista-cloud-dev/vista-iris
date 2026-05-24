@@ -43,7 +43,12 @@ setup.scheduleOption(V, 'HL PURGE TRANSMISSIONS', '1D', scheduleTime='0045')
 # setup.setupHL7Listener(V, config.HL7_PORT)
 
 setup.reindexFile(V, '19.2')
-setup.startTaskMan(V)
+# TaskMan is intentionally NOT cold-started here. `D ^ZTMB` spawns a manager +
+# submanager + every scheduled STARTUP job (XWB listener, HL7 link manager, ...)
+# as persistent processes, which exhausts IRIS Community's ~8-unit process/license
+# cap and starves the rest of the build (03 hit <LICENSE LIMIT EXCEEDED>). The RPC
+# Broker is started at container boot by the %ZSTART hook (scripts/startup.script,
+# one listener process); the scheduled options above remain as dormant config.
 setup.removeCAPRILogin(V)
 setup.addSystemManager(V)
 
