@@ -1254,127 +1254,39 @@ def createOrderMenu(VistA):
 
 
 def addPatient(VistA, patients):
-    """Register fictitious patients via the ADT Register-a-Patient menu.
+    """Create the sample patients directly in PATIENT (#2) via FileMan DBS.
 
-    `patients` is a list of dicts with keys: fullname, sex, dob, ssn, type,
-    veteran, service, twin, cityob, stateob. (Upstream read these from a CSV;
-    inlined here to drop the TestHelper/CSV dependency.)
+    A standalone instance has no Master Patient Index, so the interactive
+    "Register a Patient" menu blocks on "Searching the MVI..." (the Enterprise
+    Search is gated by the MPIFXMLP routine, which is present once VistA-M is
+    loaded). UPDATE^DIE files each entry directly with the file's seven required
+    identifiers (.02 SEX, .03 DOB, .09 SSN, .301 SERVICE CONNECTED?, 391 TYPE,
+    1901 VETERAN) -- deterministic and MVI-free. Enough to look the patient up
+    and use it in CPRS; full registration (eligibility/enrollment) is deferred.
+
+    `patients` is a list of dicts with keys: fullname, sex, dob, ssn, service,
+    veteran (type/twin/cityob/stateob are accepted but unused here).
     """
-    for patient_data in patients:
-        VistA.write('L  S DUZ=1 D ^XUP')
-        VistA.wait('Select OPTION NAME')
-        VistA.write('Core Applications\r')
-        VistA.wait('Select Core Applications')
-        VistA.write('ADT Manager Menu')
-        while True:
-            index = VistA.multiwait(['to continue', 'Select ADT Manager Menu', 'Select Registration Menu'])
-            if index == 0:
-                VistA.write('')
-            elif index == 1:
-                VistA.write('Registration Menu')
-            elif index == 2:
-                VistA.write('Register a Patient')
-                break
-        index = VistA.multiwait(['PATIENT NAME', 'Select 1010 printer'])
-        if index == 1:
-            VistA.write('NULL')
-            VistA.wait('PATIENT NAME')
-        VistA.write(patient_data['fullname'].strip())
-        index = VistA.multiwait(['ARE YOU ADDING', 'Enterprise Search'])
-        VistA.write('Y')
-        if index == 1:
-            while True:
-                index = VistA.multiwait(['FAMILY', 'GIVEN', 'MIDDLE NAME', 'PREFIX', 'SUFFIX',
-                                         'DEGREE', 'SOCIAL SECURITY', 'DATE OF BIRTH', 'SEX',
-                                         'MAIDEN NAME', 'CITY', 'STATE', 'MULTIPLE BIRTH',
-                                         'PHONE NUMBER', 'ARE YOU ADDING'])
-                if index == 14:
-                    VistA.write('Y')
-                    break
-                elif index == 6:
-                    VistA.write(patient_data['ssn'])
-                elif index == 7:
-                    VistA.write(patient_data['dob'].strip())
-                elif index == 8:
-                    VistA.write(patient_data['sex'].strip())
-                else:
-                    VistA.write('')
-            VistA.wait('to continue')
-            VistA.write('')
-            VistA.wait('MULTIPLE BIRTH INDICATOR')
-            VistA.write('')
-            VistA.wait('MAIDEN NAME:')
-            VistA.write('')
-        else:
-            VistA.wait('SEX')
-            VistA.write(patient_data['sex'].strip())
-            VistA.wait('DATE OF BIRTH')
-            VistA.write(patient_data['dob'].strip())
-            VistA.wait('SOCIAL SECURITY NUMBER')
-            VistA.write(patient_data['ssn'])
-            VistA.wait('TYPE')
-            VistA.write(patient_data['type'].strip())
-            VistA.wait('PATIENT VETERAN')
-            VistA.write(patient_data['veteran'].strip())
-            VistA.wait('SERVICE CONNECTED')
-            VistA.write(patient_data['service'].strip())
-            VistA.wait('MULTIPLE BIRTH INDICATOR')
-            VistA.write(patient_data['twin'].strip())
-            index = VistA.multiwait(['Do you still', 'FAMILY'])
-            if index == 0:
-                VistA.write('Y')
-                VistA.wait('FAMILY')
-            VistA.write('^\r')
-            VistA.wait('MAIDEN NAME:')
-            VistA.write('')
-        VistA.wait('[CITY]')
-        VistA.write(patient_data['cityob'].strip())
-        VistA.wait('[STATE]')
-        VistA.write(patient_data['stateob'].strip())
-        VistA.wait('ALIAS')
-        VistA.write('')
-        while True:
-            waitIndex = VistA.multiwait(['Patient Data', 'to exit:'])
-            if waitIndex == 0:
-                break
-            VistA.write('')
-        VistA.write('Y')
-        index = VistA.multiwait(['QUIT', 'Do you want to edit'])
-        if index == 1:
-            VistA.write('N')
-            VistA.wait('QUIT')
-        VistA.write('^')
-        VistA.wait('condition')
-        VistA.write('N')
-        VistA.wait('today')
-        VistA.write('N')
-        VistA.wait('Registration login')
-        VistA.write('NOW')
-        VistA.wait('TYPE OF BENEFIT')
-        VistA.write('3')
-        VistA.wait('TYPE OF CARE')
-        VistA.write('5')
-        VistA.wait('REGISTRATION ELIGIBILITY CODE')
-        VistA.write('')
-        VistA.wait('NEED RELATED TO AN ACCIDENT')
-        VistA.write('N')
-        VistA.wait('NEED RELATED TO OCCUPATION')
-        VistA.write('N')
-        index = VistA.multiwait(['VA Patient Enrollment', 'PRINT 10'])
-        if index == 0:
-            VistA.write('No')
-            VistA.wait('as soon as available')
-            VistA.write('No')
-            VistA.wait('PRINT 10')
-        VistA.write('N')
-        VistA.wait('ROUTING SLIP')
-        VistA.write('N')
-        VistA.wait_re('SELECT PATIENT NAME')
-        VistA.write('^')
-        while True:
-            index = VistA.multiwait(['to halt', 'Core Applications', 'to continue',
-                                     'Select ADT Manager Menu', 'Registration Menu'])
-            VistA.write('')
-            if index == 0:
-                break
+    VistA.wait(PROMPT, 60)
+    # Resolve the PATIENT TYPE (#391) pointer once (391 is a required identifier).
+    VistA.write('S DIC=391,DIC(0)="M",X="NSC VETERAN" D ^DIC S DGTYPE=+Y')
+    VistA.wait(PROMPT)
+    for p in patients:
+        name = p['fullname'].strip()
+        VistA.write('S X="' + p['dob'].strip() + '",%DT="" D ^%DT S DGDOB=Y')
+        VistA.wait(PROMPT)
+        VistA.write('K FDA,DGIEN,DGERR')
+        VistA.wait(PROMPT)
+        VistA.write('S FDA(2,"+1,",.01)="' + name + '",FDA(2,"+1,",.02)="'
+                    + p['sex'].strip()[0] + '",FDA(2,"+1,",.03)=DGDOB,FDA(2,"+1,",.09)="'
+                    + p['ssn'].strip() + '"')
+        VistA.wait(PROMPT)
+        VistA.write('S FDA(2,"+1,",.301)="' + p.get('service', 'N').strip()
+                    + '",FDA(2,"+1,",391)=DGTYPE,FDA(2,"+1,",1901)="'
+                    + p.get('veteran', 'Y').strip() + '"')
+        VistA.wait(PROMPT)
+        VistA.write('D UPDATE^DIE("","FDA","DGIEN","DGERR")')
+        VistA.wait(PROMPT)
+        VistA.write('W !,"PATIENT ",$S(+$G(DGIEN(1)):"ADDED DFN="_DGIEN(1),'
+                    '1:"FAILED: "_$G(DGERR("DIERR",1,"TEXT",1)))," (' + name + ')",!')
         VistA.wait(PROMPT)
