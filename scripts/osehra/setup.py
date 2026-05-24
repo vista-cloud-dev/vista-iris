@@ -72,9 +72,9 @@ def signonZU(VistA, acc_code, ver_code):
 
 
 def initializeFileman(VistA, site_name, site_number):
-    # Initialize FileMan (DINIT) and set the MUMPS OPERATING SYSTEM to CACHE --
-    # the Cache-compatible interface IRIS presents (replaces the manual
-    # ^ZTMGRSET "system type 3" step). ^ZUSET renames the ZU* routines.
+    # Initialize FileMan (DINIT) and set the MUMPS OPERATING SYSTEM to CACHE
+    # (the Cache-compatible interface IRIS presents). ^ZUSET renames the ZU*
+    # routines. (^ZTMGRSET system-type setup already ran in 00_import.py.)
     VistA.write('D ^DINIT')
     VistA.wait('Initialize VA FileMan now?')
     VistA.write('Yes')

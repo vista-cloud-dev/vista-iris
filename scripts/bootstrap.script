@@ -1,39 +1,27 @@
 // =====================================================================
-// VistA-on-IRIS bootstrap (IRIS-native half of the install).
-// Spec docs/vista-iris-container-spec-v2.md §8 steps 1-4.
-//
+// VistA-on-IRIS namespace bootstrap (IRIS-native, spec v2 §8 steps 1-2).
 // Fed to the IRIS terminal by the Dockerfile:
 //     iris session IRIS < /opt/vista/scripts/bootstrap.script
 //
-// Creates the VISTA database/namespace + mappings, imports the FOIA routines,
-// and loads the FOIA globals. The interactive VistA site build (OS-init,
-// post-install, sample data) then runs from the cleaned OSEHRA Python fork
-// (scripts/osehra/01_osinit.py .. 03_sampledata.py), which drives an
-// `iris session IRIS -U VISTA` over pexpect.
+// Creates the VISTA database/namespace and the routine/global mappings that
+// keep VistA's percent-routines (%DT %XU %ZIS %ZO %ZT %ZV, %RCR) and %Z*
+// globals in the VISTA database rather than the shared system library.
 //
+// Routines, globals, and the OS manager setup are loaded afterward by the
+// Python fork: scripts/osehra/00_import.py (^%RI / LIST^ZGI / ^ZTMGRSET).
 // Fail-loud: any error halts so a broken build cannot produce a runnable image.
-// NOTE: confirm the Config.* / $system.OBJ signatures against the IRIS class
-// reference for the pinned release before relying on a build.
 // =====================================================================
-
-// ---- Step 1-2: VISTA database, namespace, mappings ----
 zn "%SYS"
-set dir = "/usr/irissys/mgr/VISTA/"   // TODO confirm; opt-in durable %SYS lands under ISC_DATA_DIRECTORY
+set dir = "/usr/irissys/mgr/VISTA/"
 do ##class(%File).CreateDirectoryChain(dir)
 set sc = ##class(SYS.Database).CreateDatabase(dir)  if 'sc do $system.OBJ.DisplayError(sc) halt
 kill p  set p("Directory")=dir
 set sc = ##class(Config.Databases).Create("VISTA",.p)  if 'sc do $system.OBJ.DisplayError(sc) halt
 kill p  set p("Globals")="VISTA",p("Routines")="VISTA"
 set sc = ##class(Config.Namespaces).Create("VISTA",.p)  if 'sc do $system.OBJ.DisplayError(sc) halt
+// Map VistA's percent routines + %Z* globals to the VISTA database (overrides
+// the default %-routine mapping to the shared system library).
 kill p  set p("Database")="VISTA"  do ##class(Config.MapGlobals).Create("VISTA","%Z*",.p)
 for r="%DT*","%RCR","%XU*","%ZIS*","%ZO*","%ZT*","%ZV*" { kill p  set p("Database")="VISTA"  do ##class(Config.MapRoutines).Create("VISTA",r,.p) }
-
-// ---- Step 3: import + compile VistA routines (Cache write type, valid for IRIS) ----
-zn "VISTA"
-set sc = $system.OBJ.ImportDir("/opt/vista/vista-m","*.m","ck",.err,1)  if 'sc do $system.OBJ.DisplayError(sc) halt
-
-// ---- Step 4: load VistA globals from .zwr ----
-set sc = $system.OBJ.ImportDir("/opt/vista/vista-m","*.zwr","ck",.err,1)  if 'sc do $system.OBJ.DisplayError(sc) halt
-
-write !,"VistA-on-IRIS bootstrap complete (namespace + routines + globals).",!
+write !,"VistA-on-IRIS namespace ready (VISTA database + mappings).",!
 halt

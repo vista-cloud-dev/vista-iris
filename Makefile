@@ -14,14 +14,14 @@ IMAGE     ?= vista-iris:dev
 CONTAINER ?= vista-iris
 
 # IRIS for Health Community base tag (§4: "latest, then recorded"). Auto-selects
-# the arm64 variant on Apple Silicon / aarch64; override with IRIS_TAG=...
-# TODO: confirm the exact tag (and that an -arm64 variant exists) on the
-# registry, then record the resolved release here for reproducibility.
+# the per-arch variant; override with IRIS_TAG=... InterSystems publishes
+# explicit per-OS/arch tags (verified on Docker Hub 2026-05): the floating
+# `latest-cd` plus `latest-cd-linux-amd64` / `latest-cd-linux-arm64`.
 ARCH := $(shell uname -m)
 ifeq ($(filter arm64 aarch64,$(ARCH)),)
-IRIS_TAG ?= latest-cd
+IRIS_TAG ?= latest-cd-linux-amd64
 else
-IRIS_TAG ?= latest-cd-arm64
+IRIS_TAG ?= latest-cd-linux-arm64
 endif
 export IRIS_TAG
 

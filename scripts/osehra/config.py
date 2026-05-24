@@ -31,4 +31,9 @@ def connect(logname):
         v.wait("Password")
         v.write(PASSWORD)
         v.wait(v.prompt, 120)
+    # The initial prompt was just consumed above. Emit a bare CR so exactly one
+    # fresh prompt is pending: the OSEHRA steps assume each is entered at a
+    # prompt, and the first one (e.g. startFileman) is wait-first. Harmless to
+    # write-first steps -- their next non-prompt match skips this extra prompt.
+    v.write("")
     return v

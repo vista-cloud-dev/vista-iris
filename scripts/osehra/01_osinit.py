@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Step 1 -- OS / device interface init (spec v2 §8 step 5).
+"""Step 1 -- device interface init + FileMan re-init (spec v2 §8 step 5, post-import).
 
 Forked from OSEHRA Initialize.py.in plus the OS-init head of
 PostImportSetupScript.py.in. Sets the TELNET/TRM device $I entries and the MPI
-local site number, then runs DINIT (MUMPS OPERATING SYSTEM -> CACHE, the
-interface IRIS presents -- this supersedes the manual ^ZTMGRSET step) + ^ZUSET.
+local site number, then runs DINIT (MUMPS OPERATING SYSTEM -> CACHE) + ^ZUSET.
+(`^ZTMGRSET` system-type setup already ran in 00_import.py.)
 """
 import os
 import sys
