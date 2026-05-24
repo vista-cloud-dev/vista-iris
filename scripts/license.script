@@ -1,0 +1,20 @@
+// VistA / IRIS license usage + per-service accountability report.
+// Fed to the running instance:  make license
+//   (-> iris session IRIS -U %SYS < scripts/license.script)
+// Shows the IRIS Community license budget, the configured service toggles, and
+// the live processes consuming the license, labeled by VistA/IRIS service.
+zn "%SYS"
+W !,"================= IRIS / VistA license usage ================="
+W !,"Key license units (total): ",$SYSTEM.License.KeyLicenseUnits()
+W !,"Units consumed            : ",$SYSTEM.License.LUConsumed()
+W !,"Units available           : ",$SYSTEM.License.LUAvailable()
+W !,"Max connections           : ",$SYSTEM.License.MaxConnections()
+W !!,"Service toggles (container environment; blank = built-in default):"
+W !,"  RPC Broker (XWB)   VISTA_ENABLE_RPC     = ",$S($SYSTEM.Util.GetEnviron("VISTA_ENABLE_RPC")="":"(default ON)",1:$SYSTEM.Util.GetEnviron("VISTA_ENABLE_RPC"))
+W !,"  TaskMan            VISTA_ENABLE_TASKMAN = ",$S($SYSTEM.Util.GetEnviron("VISTA_ENABLE_TASKMAN")="":"(default off)",1:$SYSTEM.Util.GetEnviron("VISTA_ENABLE_TASKMAN"))
+W !,"  HL7 Link Manager   VISTA_ENABLE_HL7     = ",$S($SYSTEM.Util.GetEnviron("VISTA_ENABLE_HL7")="":"(default off)",1:$SYSTEM.Util.GetEnviron("VISTA_ENABLE_HL7"))
+W !!,"Processes (license consumers) by service:"
+W !,"  PID",?11,"SERVICE",?28,"NAMESPACE",?40,"ROUTINE"
+S pid="" F  S pid=$O(^$JOB(pid)) Q:pid=""  S ns=$SYSTEM.Process.NameSpace(pid),rtn=$SYSTEM.Process.Routine(pid) W !,"  ",pid,?11,$S(rtn["XWBTCP":"RPC Broker",(rtn["ZISTCPS")&(ns="VISTA"):"RPC Broker (listener)",rtn["ZTM":"TaskMan",$E(rtn,1,2)="HL":"HL7",ns="VISTA":"VistA session",1:"IRIS system"),?28,$S(ns="":"-",1:ns),?40,$S(rtn="":"-",1:$E(rtn,1,24))
+W !
+H

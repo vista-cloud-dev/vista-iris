@@ -29,6 +29,17 @@ services:
       # to EPHEMERAL (§4); for a fully disposable instance, drop the volume
       # mount + this var and rebuild from scratch each time.
       ISC_DATA_DIRECTORY: /durable/iris
+      # --- Service toggles (manage the IRIS Community license; see `make license`) ---
+      # Read at boot by the %ZSTART hook; override via host env, e.g.
+      #   VISTA_ENABLE_TASKMAN=1 podman compose up -d
+      # RPC Broker (XWB) on VISTA_RPC_PORT -- CPRS / RPC clients. Default ON (1 unit).
+      VISTA_ENABLE_RPC: ${VISTA_ENABLE_RPC:-1}
+      VISTA_RPC_PORT: ${VISTA_RPC_PORT:-9430}
+      # TaskMan (^ZTMB + its scheduled STARTUP jobs). Spawns several persistent
+      # processes that can exhaust IRIS Community's ~8-unit license. Default OFF.
+      VISTA_ENABLE_TASKMAN: ${VISTA_ENABLE_TASKMAN:-0}
+      # HL7 Link Manager (needs an HL LOGICAL LINK #870 listener; deferred). Default OFF.
+      VISTA_ENABLE_HL7: ${VISTA_ENABLE_HL7:-0}
     # IRIS Community Edition is core-capped (~20). On hosts with more cores,
     # uncomment so the instance can start within the limit:
     # cpuset: "0-19"

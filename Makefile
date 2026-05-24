@@ -49,8 +49,14 @@ HL7_PORT ?= 5026
 MIN_DISK_GB ?= 40
 export MIN_DISK_GB
 
+# Service toggles (manage the IRIS Community license budget). Passed to `run`;
+# also settable in docker-compose.yml or the host env. See `make license`.
+ENABLE_RPC     ?= 1
+ENABLE_TASKMAN ?= 0
+ENABLE_HL7     ?= 0
+
 .DEFAULT_GOAL := help
-.PHONY: help preflight fresh sources build up down verify lint test ci clean pull run stop
+.PHONY: help preflight fresh sources build up down verify lint test ci clean pull run stop license
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
@@ -87,13 +93,18 @@ down: ## Stop and remove the instance
 pull: ## Pull/refresh the prebuilt published image from GHCR
 	$(ENGINE) pull $(PUBLISHED_IMAGE):$(PUBLISHED_TAG)
 
-run: preflight ## Run the prebuilt image (ephemeral; the streamlined quickstart)
+run: preflight ## Run the prebuilt image (toggles: ENABLE_RPC/ENABLE_TASKMAN/ENABLE_HL7)
 	$(ENGINE) run -d --name $(CONTAINER) \
 	  -p 1972:1972 -p 52773:52773 -p $(RPC_PORT):$(RPC_PORT) -p $(HL7_PORT):$(HL7_PORT) \
+	  -e VISTA_ENABLE_RPC=$(ENABLE_RPC) -e VISTA_RPC_PORT=$(RPC_PORT) \
+	  -e VISTA_ENABLE_TASKMAN=$(ENABLE_TASKMAN) -e VISTA_ENABLE_HL7=$(ENABLE_HL7) \
 	  $(PUBLISHED_IMAGE):$(PUBLISHED_TAG)
 
 # Running a prebuilt image needs far less free disk than a from-scratch build.
 up run: MIN_DISK_GB := 25
+
+license: ## Report IRIS license units + per-service process usage (running instance)
+	@$(ENGINE) exec -i $(CONTAINER) iris session IRIS -U %SYS < scripts/license.script
 
 stop: ## Stop & remove the `run` container
 	-$(ENGINE) rm -f $(CONTAINER)
