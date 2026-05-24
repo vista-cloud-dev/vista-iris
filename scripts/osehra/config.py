@@ -9,9 +9,15 @@ INSTANCE = os.environ.get("VISTA_INSTANCE", "IRIS")
 NAMESPACE = os.environ.get("VISTA_NAMESPACE", "VISTA")
 USERNAME = os.environ.get("VISTA_USERNAME", "_SYSTEM")
 PASSWORD = os.environ.get("VISTA_PASSWORD", "SYS")
-SITE_NAME = os.environ.get("VISTA_SITE_NAME", "VISTA HEALTH CARE")
+# DOMAIN is the messaging domain / DINIT site name (file #4.2) -- it must be
+# punctuation-restricted (dots/dashes, NO spaces). INSTITUTION is the facility
+# name (file #4), where spaces are fine. These are distinct in VistA.
+DOMAIN = os.environ.get("VISTA_DOMAIN", "DEMO.OSEHRA.ORG")
+INSTITUTION = os.environ.get("VISTA_INSTITUTION", "VISTA HEALTH CARE")
 SITE_NUMBER = os.environ.get("VISTA_SITE_NUMBER", "6161")
-VOLUME_SET = os.environ.get("VISTA_VOLUME_SET", "ROU")
+# Volume-set name; on IRIS GETENV^%ZOSV reports "...^VISTA:IRIS", so "VISTA" is
+# the anchor that yields box:volume pair "VISTA:IRIS".
+VOLUME_SET = os.environ.get("VISTA_VOLUME_SET", "VISTA")
 RPC_PORT = os.environ.get("VISTA_RPC_PORT", "9430")
 HL7_PORT = os.environ.get("VISTA_HL7_PORT", "5026")
 HFS_DIR = os.environ.get("VISTA_HFS_DIR", "/tmp")

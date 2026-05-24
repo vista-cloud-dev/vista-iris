@@ -225,24 +225,31 @@ def main():
     setup.createOrderMenu(V)
     setup.addAllergiesPermission(V)
     setup.addTemplatePermission(V, "MS")
+    V.close()
 
     # Turn off access/verify expiration (fresh connection, programmer access).
     V2 = config.connect("03_verifycodes.log")
     setup.setNonExpiringCodes(V2, ["ALEXANDER,ROBERT", 'SMITH,MARY', "CLERK,JOE"])
+    V2.close()
 
     time.sleep(10)
 
-    # Each e-signature is set by signing in as that user (fresh connection).
+    # Each e-signature is set by signing in as that user. Open one session at a
+    # time and close it -- IRIS Community caps concurrent processes.
     Vd = config.connect("03_sig_doc.log")
     setup.setupElectronicSignature(Vd, "fakedoc1", '2Doc!@#$', '1Doc!@#$', 'ROBA123')
+    Vd.close()
     Vn = config.connect("03_sig_nurse.log")
     setup.setupElectronicSignature(Vn, "fakenurse1", "2Nur!@#$", "1Nur!@#$", "MARYS123")
+    Vn.close()
     Vc = config.connect("03_sig_clerk.log")
     setup.setupElectronicSignature(Vc, "fakeclerk1", "2Cle!@#$", "1Cle!@#$", "CLERKJ123")
+    Vc.close()
 
     # Register the sample patients (fresh connection).
     Vp = config.connect("03_patients.log")
     setup.addPatient(Vp, PATIENTS)
+    Vp.close()
 
 
 if __name__ == "__main__":

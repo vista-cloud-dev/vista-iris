@@ -22,11 +22,11 @@ setup.setupIntroText(V, config.VISTA_M_TAG)
 setup.configureNULLDevice(V)
 setup.configureConsoleDevice(V)
 setup.configureHFSDevice(V)
-setup.setupVistADomain(V, config.SITE_NAME)
+setup.setupVistADomain(V, config.DOMAIN)
 
 # RPC Broker (XWB) listener on RPC_PORT (9430) -- CPRS / RPC clients.
-setup.setupBoxVolPair(V, config.VOLUME_SET, config.SITE_NAME, config.RPC_PORT)
-setup.setupVolumeSet(V, config.SITE_NAME, config.VOLUME_SET, config.NAMESPACE)
+setup.setupBoxVolPair(V, config.VOLUME_SET, config.DOMAIN, config.RPC_PORT)
+setup.setupVolumeSet(V, config.DOMAIN, config.VOLUME_SET, config.NAMESPACE)
 
 # Schedule the listeners + HL7 services at every TaskMan startup.
 setup.scheduleOption(V, 'XWB LISTENER STARTER', 'STARTUP')
@@ -35,8 +35,12 @@ setup.scheduleOption(V, 'HL AUTOSTART LINK MANAGER', 'STARTUP')
 setup.scheduleOption(V, 'HL TASK RESTART', 'STARTUP')
 setup.scheduleOption(V, 'HL PURGE TRANSMISSIONS', '1D', scheduleTime='0045')
 
-# HL7 MLLP listener on HL7_PORT (5026) -- spec §8 step 8 (UNVERIFIED; see setup.py).
-setup.setupHL7Listener(V, config.HL7_PORT)
+# HL7 MLLP listener on HL7_PORT (5026) -- spec §8 step 8. DEFERRED: the
+# "HL EDIT LOGICAL LINKS" option is a full-screen List Manager UI that pexpect
+# cannot drive reliably; an HL LOGICAL LINK (#870) listener needs a programmatic
+# FileMan/global approach instead. The HL7 Link Manager itself is already
+# autostart-scheduled above (HL AUTOSTART LINK MANAGER). TODO: implement #870.
+# setup.setupHL7Listener(V, config.HL7_PORT)
 
 setup.reindexFile(V, '19.2')
 setup.startTaskMan(V)
@@ -44,6 +48,6 @@ setup.removeCAPRILogin(V)
 setup.addSystemManager(V)
 
 # Institution + Medical Center division (identities per §9 Tier-1).
-setup.addInstitution(V, config.SITE_NAME, '6100')
+setup.addInstitution(V, config.INSTITUTION, '6100')
 setup.addDivision(V, 'VISTA MEDICAL CENTER', '6101', '6100')
-setup.addtoMASParameter(V, config.SITE_NAME, 'VISTA MEDICAL CENTER')
+setup.addtoMASParameter(V, config.INSTITUTION, 'VISTA MEDICAL CENTER')

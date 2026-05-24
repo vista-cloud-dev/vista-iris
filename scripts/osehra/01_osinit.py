@@ -48,7 +48,7 @@ setup.addMPILocalNumber(V)
 
 # --- FileMan re-init + OS routine rename (DINIT + ZUSET) ---
 V.wait(PROMPT)
-setup.initializeFileman(V, config.SITE_NAME, config.SITE_NUMBER)
+setup.initializeFileman(V, config.DOMAIN, config.SITE_NUMBER)
 
 V.wait(PROMPT)
 V.write('h')

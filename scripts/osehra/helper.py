@@ -161,6 +161,21 @@ class IRISSession(object):
                 self.write("Q")
             self.write("^")
 
+    def close(self):
+        """Halt the session and release its IRIS license slot.
+
+        IRIS Community caps concurrent processes, so a step that opens several
+        connections must close each before the next (else LICENSE LIMIT EXCEEDED).
+        """
+        try:
+            self.write("h")
+        except Exception:
+            pass
+        try:
+            self.connection.close(force=True)
+        except Exception:
+            pass
+
 
 def ConnectToMUMPS(logfile, instance="IRIS", namespace="VISTA",
                    location="127.0.0.1", remote_conn_details=None):
