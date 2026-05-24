@@ -42,14 +42,17 @@ RUN iris start IRIS quietly \
  && iris stop IRIS quietly
 
 # --- Layer 2 (iterated): interactive VistA site build -------------------------
-# OS-init, post-install (institution, users, TaskMan, RPC Broker 9430, HL7 Link
-# Manager 5026), and Tier-1 sample data. Copied after the import so edits here
-# reuse the cached import layer. Each step is fail-loud (§5.4).
+# OS-init, post-install (institution, users, RPC Broker 9430), Tier-1 sample
+# data, then install the %ZSTART hook that auto-starts the RPC Broker listener
+# on every boot. Copied after the import so edits here reuse the cached import
+# layer. Each step is fail-loud (§5.4).
+COPY --chown=irisowner:irisowner scripts/startup.script  /opt/vista/scripts/startup.script
 COPY --chown=irisowner:irisowner scripts/osehra/setup.py scripts/osehra/01_osinit.py scripts/osehra/02_postinstall.py scripts/osehra/03_sampledata.py  /opt/vista/scripts/osehra/
 RUN iris start IRIS quietly \
  && python3 /opt/vista/scripts/osehra/01_osinit.py \
  && python3 /opt/vista/scripts/osehra/02_postinstall.py \
  && python3 /opt/vista/scripts/osehra/03_sampledata.py \
+ && iris session IRIS -U %SYS < /opt/vista/scripts/startup.script \
  && iris stop IRIS quietly
 
 # The base image already exposes 1972 (superserver / RPC / xDBC) and 52773

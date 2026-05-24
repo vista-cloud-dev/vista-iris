@@ -1,0 +1,31 @@
+// =====================================================================
+// Install the IRIS %ZSTART startup hook (spec v2 §8 step 7 -- RPC Broker
+// auto-start). Fed to the IRIS terminal in the %SYS namespace by the Dockerfile:
+//     iris session IRIS -U %SYS < /opt/vista/scripts/startup.script
+//
+// IRIS calls SYSTEM^%ZSTART once at every instance startup. The hook jobs the
+// VistA RPC Broker (XWB) TCP listener on port 9430 (ZISTCP^XWBTCPM1 -> the
+// blocking LISTEN^%ZISTCPS loop), so CPRS / RPC clients can connect on every
+// boot -- without relying on TaskMan cold-start. Idempotent: re-running
+// overwrites the routine.
+//
+// NOTE: the broker port (9430) is fixed here to match the published port and
+// RPC BROKER SITE PARAMETERS; change both together if you re-port it.
+// =====================================================================
+zn "%SYS"
+set r=##class(%Routine).%New("%ZSTART.MAC")
+do r.WriteLine("%ZSTART ;vista-iris - IRIS startup hook (start VistA RPC Broker)")
+do r.WriteLine(" Q")
+do r.WriteLine("SYSTEM ;runs once at IRIS instance startup")
+do r.WriteLine(" N $ETRAP,$ESTACK S $ETRAP=""Q""")
+do r.WriteLine(" D START")
+do r.WriteLine(" Q")
+do r.WriteLine("START ;start the VistA RPC Broker (XWB) listener on 9430")
+do r.WriteLine(" N NS S NS=$NAMESPACE ZN ""VISTA""")
+do r.WriteLine(" S DUZ=1 JOB ZISTCP^XWBTCPM1(9430)")
+do r.WriteLine(" ZN NS")
+do r.WriteLine(" Q")
+set sc=r.Save()  if 'sc do $system.OBJ.DisplayError(sc) halt
+set sc=r.Compile("ck")  if 'sc do $system.OBJ.DisplayError(sc) halt
+write !,"%ZSTART startup hook installed (RPC Broker auto-start on 9430).",!
+halt
