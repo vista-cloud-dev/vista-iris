@@ -13,6 +13,12 @@ COMPOSE    = $(ENGINE) compose
 IMAGE     ?= vista-iris:dev
 CONTAINER ?= vista-iris
 
+# Prebuilt image published to GHCR by .github/workflows/publish.yml. The
+# consumer path (`pull`/`run`) uses this instead of building locally, so a new
+# developer needs only Podman -- no submodule, no build, no Python/Node.
+PUBLISHED_IMAGE ?= ghcr.io/vista-cloud-dev/vista-iris
+PUBLISHED_TAG   ?= latest
+
 # IRIS for Health Community base tag (§4: "latest, then recorded"). Auto-selects
 # the per-arch variant; override with IRIS_TAG=... InterSystems publishes
 # explicit per-OS/arch tags (verified on Docker Hub 2026-05): the floating
@@ -38,7 +44,7 @@ RPC_PORT ?= 9430
 HL7_PORT ?= 5026
 
 .DEFAULT_GOAL := help
-.PHONY: help sources build up down verify lint test ci clean
+.PHONY: help sources build up down verify lint test ci clean pull run stop
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
@@ -63,16 +69,22 @@ up: ## Start the instance (detached)
 down: ## Stop and remove the instance
 	$(COMPOSE) down
 
+# --- Consumer path: run the PREBUILT published image (no local build) --------
+# `run` uses plain `$(ENGINE) run`, NOT compose: `podman compose` can delegate to
+# podman-compose (a Python tool), which would reintroduce a host runtime dep.
+pull: ## Pull/refresh the prebuilt published image from GHCR
+	$(ENGINE) pull $(PUBLISHED_IMAGE):$(PUBLISHED_TAG)
+
+run: ## Run the prebuilt image (ephemeral; the streamlined quickstart)
+	$(ENGINE) run -d --name $(CONTAINER) \
+	  -p 1972:1972 -p 52773:52773 -p $(RPC_PORT):$(RPC_PORT) -p $(HL7_PORT):$(HL7_PORT) \
+	  $(PUBLISHED_IMAGE):$(PUBLISHED_TAG)
+
+stop: ## Stop & remove the `run` container
+	-$(ENGINE) rm -f $(CONTAINER)
+
 verify: ## Run the spec §10 acceptance checks (fail-loud)
-	@echo ">> [1/6] instance running"
-	$(ENGINE) exec $(CONTAINER) iris list | grep -q running
-	@echo ">> [2/6] VISTA login + ^XUP menu          (TODO: scripted M smoke check)"
-	@echo ">> [3/6] FileMan inquiry returns a ^DPT sample patient (TODO)"
-	@echo ">> [4/6] TaskMan active                    (TODO)"
-	@echo ">> [5/6] RPC Broker reachable on $(RPC_PORT)"
-	nc -z localhost $(RPC_PORT)
-	@echo ">> [6/6] HL7 MLLP reachable on $(HL7_PORT)"
-	nc -z localhost $(HL7_PORT)
+	ENGINE="$(ENGINE)" CONTAINER="$(CONTAINER)" RPC_PORT="$(RPC_PORT)" HL7_PORT="$(HL7_PORT)" sh scripts/smoke.sh
 
 lint: ## Static checks: shellcheck wrappers; XINDEX over changed routines
 	@if command -v shellcheck >/dev/null 2>&1; then \

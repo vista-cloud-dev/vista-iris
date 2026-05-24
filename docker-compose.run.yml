@@ -1,0 +1,30 @@
+# Consumer orchestration — runs the PREBUILT published image (no local build).
+# For people who prefer Compose over the `podman run` one-liner / `make run`.
+#
+#   podman compose -f docker-compose.run.yml up -d     # or: docker compose -f ...
+#
+# NOTE: `podman compose` may delegate to `podman-compose`, which is itself a
+# Python tool — that reintroduces a host runtime dependency this project avoids.
+# If you want zero host runtimes, use `make run` (plain `podman run`) instead, or
+# use Docker's / Podman's Go-based compose provider.
+#
+# Override the tag without editing this file:  VISTA_TAG=20260524 podman compose -f docker-compose.run.yml up -d
+services:
+  vista:
+    image: ghcr.io/vista-cloud-dev/vista-iris:${VISTA_TAG:-latest}
+    container_name: vista-iris
+    ports:
+      - "1972:1972"      # IRIS superserver — RPC / xDBC / SQL
+      - "52773:52773"    # IRIS Management Portal (web) + FHIR REST
+      - "9430:9430"      # VistA RPC Broker (XWB) — CPRS / RPC clients
+      - "5026:5026"      # VistA HL7 MLLP listener
+    # Persist instance data across recreation by mounting a Durable %SYS volume.
+    # Commented out by default to match the disposable Quickstart; uncomment both
+    # the volume mount and the env var to keep data between runs.
+    # volumes:
+    #   - vista-durable:/durable
+    # environment:
+    #   ISC_DATA_DIRECTORY: /durable/iris
+    restart: unless-stopped
+# volumes:
+#   vista-durable:

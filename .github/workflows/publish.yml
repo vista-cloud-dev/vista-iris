@@ -1,0 +1,214 @@
+# Publish the VistA-on-IRIS image to GHCR as a multi-arch manifest.
+#
+# Strategy (per docs/vista-iris-container-spec-v2.md §7/§11): the heavy,
+# Python/pexpect-driven VistA build (spec §5.4) runs HERE, once, in CI — so a
+# developer never builds locally. They `podman pull` the result (see README
+# Quickstart / `make run`). The host needs only Podman; no Python/Node ever.
+#
+# Flow — verify BEFORE the public `:latest` moves, and no QEMU (each arch builds
+# on its own native runner, so the interactive site build isn't emulated):
+#   build (matrix)  -> build each arch natively, push by digest
+#   merge           -> assemble a `sha-<commit>` candidate manifest (cheap)
+#   verify (matrix) -> pull the candidate, boot it, smoke-test ports (fail-loud)
+#   promote         -> retag candidate to :latest (+date, +git tag) only if green
+name: publish
+
+on:
+  workflow_dispatch: {}        # manual: Actions tab -> Run workflow
+  push:
+    tags: ["v*"]               # release tags publish + tag the image
+
+# Don't let two publishes of the same ref race on the :latest pointer.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read               # checkout (incl. the vista-m submodule)
+  packages: write              # push to ghcr.io/<owner>/<repo>
+
+jobs:
+  # --- Build each architecture on a NATIVE runner, push by digest ------------
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # arm64 runners are free for public repos; a private repo needs a plan
+          # that includes them. If unavailable, drop the arm64 row (amd64-only)
+          # or switch to a single QEMU build — slower, and risky for the
+          # interactive install, hence avoided here.
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            iris_tag: latest-cd-linux-amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            iris_tag: latest-cd-linux-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Free disk space (the loaded VistA image is multi-GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /opt/hostedtoolcache/CodeQL || true
+          sudo docker image prune -af || true
+          df -h /
+
+      - name: Checkout (with vista-m submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Resolve lowercase image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push by digest (${{ matrix.platform }})
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            IRIS_TAG=${{ matrix.iris_tag }}
+          # push-by-digest: no human tag yet — the merge job assembles the
+          # manifest from per-arch digests, so a half-built arch never gets a tag.
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${{ steps.build.outputs.digest }}"
+
+      - name: Name the digest artifact per platform
+        run: |
+          platform='${{ matrix.platform }}'
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # --- Assemble a candidate manifest (cheap; just references the digests) ----
+  merge:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve image name + short SHA
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "SHA=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create candidate manifest (sha-<commit>)
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create -t "${IMAGE}:sha-${SHA}" \
+            $(printf "${IMAGE}@sha256:%s " *)
+          docker buildx imagetools inspect "${IMAGE}:sha-${SHA}"
+
+  # --- Boot the candidate on each arch and smoke-test it (fail-loud) ---------
+  verify:
+    needs: merge
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout (for scripts/smoke.sh — the shared §10 checks)
+        uses: actions/checkout@v4
+
+      - name: Resolve image name + short SHA
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "SHA=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Boot the candidate (${{ matrix.platform }})
+        run: |
+          docker run -d --name vista \
+            -p 1972:1972 -p 52773:52773 -p 9430:9430 -p 5026:5026 \
+            "${IMAGE}:sha-${SHA}"
+
+      - name: Smoke test — §10 acceptance checks
+        # Same script `make verify` runs locally (spec §7.1: local == CI). It
+        # waits out boot warm-up internally and exits non-zero on any failure,
+        # so :latest is promoted only if the published bits actually work.
+        run: ENGINE=docker CONTAINER=vista RPC_PORT=9430 HL7_PORT=5026 sh scripts/smoke.sh
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker logs vista || true
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f vista || true
+
+  # --- Only now move the public tags (verify passed on every arch) -----------
+  promote:
+    needs: verify
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve image name + short SHA
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "SHA=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Promote candidate to :latest (+ date, + git tag)
+        run: |
+          tags=(-t "${IMAGE}:latest" -t "${IMAGE}:$(date -u +%Y%m%d)")
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            tags+=(-t "${IMAGE}:${{ github.ref_name }}")
+          fi
+          docker buildx imagetools create "${tags[@]}" "${IMAGE}:sha-${SHA}"
+          docker buildx imagetools inspect "${IMAGE}:latest"
