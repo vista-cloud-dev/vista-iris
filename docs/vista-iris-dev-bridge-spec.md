@@ -1,7 +1,7 @@
 # VistA-on-IRIS Dev Bridge — Core Specification (instance-seeded, environment-neutral)
 
 **Status:** Proposed (design) · **Version:** 1 · **Date:** 2026-05-25
-**Generalizes / supersedes:** `iris-dev-bridge-spec.md` (the FOIA-instance-specific draft — its
+**Generalizes / supersedes:** `historical/iris-dev-bridge-spec.md` (the FOIA-instance-specific draft — its
 round-trip *mechanics* fold into this core; its live-instance *facts* become evidence for the public profile)
 **Defines (forthcoming siblings):** `vista-iris-dev-bridge-spec-public.md` · `vista-iris-dev-bridge-spec-va.md`
 **Companions:** `vista-iris-container-spec-v3.md` (one *example* target instance) · `vista-dev-iris-tooling.md`
@@ -112,7 +112,7 @@ routines on IRIS that:
 | **Tier** | A stage of a VistA's lifecycle — **dev → test → pre-prod → prod** — with increasingly accurate / real data. |
 | **Parity** | The property that the developer-facing surface is identical across environments ([§7](#7-the-developer-experience-identical-across-environments), [§13](#13-verification--parity-contract)). |
 | **Binding point** | An abstract dependency the core defers to a profile ([§9](#9-environment-profiles--the-binding-points)). |
-| **`m-dev-tools` / `m-cli`** | The filesystem M toolchain (`m fmt`/`lint`/`test`/`coverage`/`lsp`/`watch`) on `tree-sitter-m`; see `iris-dev-bridge-spec.md` §3. |
+| **`m-dev-tools` / `m-cli`** | The filesystem M toolchain (`m fmt`/`lint`/`test`/`coverage`/`lsp`/`watch`) on `tree-sitter-m`; see `historical/iris-dev-bridge-spec.md` §3. |
 
 ---
 
@@ -194,7 +194,7 @@ layout, and round-trip:
 - **Instance identity** — site number, DD/version fingerprint, and a content hash, for the baseline
   ([§6.3](#63-the-instance-baseline-manifest)).
 
-> **⚠ Generalization (vs `iris-dev-bridge-spec.md`).** The predecessor spec grounded everything in one
+> **⚠ Generalization (vs `historical/iris-dev-bridge-spec.md`).** The predecessor spec grounded everything in one
 > observed instance (FOIA: namespace `VISTA`, `.INT`, 33,941 routines, 144 packages). Those facts are now just
 > **one instance descriptor** — evidence for the *public profile*, not a core assumption. The core assumes
 > **none** of them and discovers each.
@@ -217,7 +217,7 @@ from the *same* source instance and tied together by one baseline manifest.
 ### 6.1 Code seed [Instance]
 
 Export the source instance's routines → a `.m` git tree, using the **discovered** package layout and encoding
-(the instance-agnostic generalization of `iris-dev-bridge-spec.md` Stage 1). This tree is the
+(the instance-agnostic generalization of `historical/iris-dev-bridge-spec.md` Stage 1). This tree is the
 **version-controlled baseline** the team develops on.
 
 ### 6.2 Runtime seed [Instance / Profile]
@@ -248,6 +248,24 @@ the specific instance** — which is exactly why the dev environment must be **s
 (both its code *and* a runnable copy of its DD+data). The bridge does **not** try to make instances equal; it
 makes the dev environment *match* its target.
 
+### 6.5 Round-trip mechanics
+
+**[Parity].** The export ↔ push-back round-trip is **identical in every environment** (only the endpoints
+differ). Because flat-M VistA carries no class macros, a routine's IRIS source text and its `.m` text are the
+same M — the round-trip is a lossless rename + encoding normalization:
+
+- **Export:** read the namespace's routines (the discovered type, e.g. `.INT`) → write one `.m` per routine in
+  the discovered package layout (`%` → `_`, the instance's encoding).
+- **Push back:** stage `.m` → `<NAME>.int` (reverse `_` → `%`), then `$SYSTEM.OBJ.Load(…, "ck")` (one) or
+  `$SYSTEM.OBJ.ImportDir(…, "*.int", "ck", , 1)` (batch) — compile **and** keep source.
+- **Why stage to `.int`:** IRIS rejects raw `.m` on import (Err #5840; cf. `vista-iris-container-spec-v3.md` §4),
+  so `.m` content is staged under an IRIS-native extension first. No data / DD is touched.
+- **Fidelity:** export → re-import unchanged → re-export must be byte-identical
+  ([§13](#13-verification--parity-contract) suite 2).
+
+The concrete, validated realization (commands, scripts, the reference instance) is recorded in the **public
+profile**; the **VA profile** re-validates the same mechanics in-boundary.
+
 ---
 
 ## 7. The Developer Experience (identical across environments)
@@ -273,7 +291,7 @@ observable difference is a parity defect ([§13](#13-verification--parity-contra
 - **Git-first collaboration** — branches, pull requests, code review, and CI on whichever git host the profile
   binds ([§9](#9-environment-profiles--the-binding-points)); the **workflow is identical**. Per-developer
   environments (own code tree + own runtime IRIS), shared via git — **no shared mutable IRIS** (a routine `sync`
-  mutates the namespace; see `iris-dev-bridge-spec.md` §12.2).
+  mutates the namespace; see `historical/iris-dev-bridge-spec.md` §12.2).
 - **Two test tiers (test-driven):**
   1. **File-side unit tests** — `m test` / `coverage` on the `.m` tree (parser + YottaDB engine), fast, no IRIS;
      **gate the PR**.
@@ -304,9 +322,9 @@ contract for writing the two parallel specs.
 | Identity / auth | public OAuth / SSH keys | **VA SSO** (SAML/OIDC, PIV/CAC) |
 | AI / MCP tooling | allowed (`m-dev-tools-mcp`, Claude Code) | per VA network policy (treat as optional) |
 
-> Each profile is a **separate spec**, so the two environments are never mixed. The public profile inherits the
-> concrete, validated facts currently in `iris-dev-bridge-spec.md`; the VA profile inherits its §12.5 in-boundary
-> mapping. This core makes both *thin*.
+> Each profile is a **separate spec**, so the two environments are never mixed. The **public profile** carries the
+> concrete, validated reference-instance facts and surfaces; the **VA profile** carries the in-boundary
+> supply-chain mapping. This core makes both *thin*.
 
 ---
 
@@ -379,9 +397,9 @@ Suites 1–2 run **in public CI**; suite 3 re-runs them **in-boundary** as the t
 | Item | Status | Note |
 |---|---|---|
 | **DD / data divergence across instances** | **By design** | Routine behavior depends on the target's DD + data; validated only at runtime against the target ([§6.4](#64-why-two-seeds-code-is-meaningless-without-its-dd)). |
-| **DB → FS drift mirror** | **Deferred** | In-IRIS edits diverging from git (carried from `iris-dev-bridge-spec.md` Stage 4); baseline manifests enable *detection* ([§6.3](#63-the-instance-baseline-manifest)). |
-| **Profile specs not yet written** | **Open** | `…-public.md` / `…-va.md` to follow ([§9](#9-environment-profiles--the-binding-points)). |
-| **Predecessor migration** | **Open** | `iris-dev-bridge-spec.md` mechanics → this core; its FOIA facts → the public profile; then retire/refile it (cf. v2 → `historical/`). |
+| **DB → FS drift mirror** | **Deferred** | In-IRIS edits diverging from git (carried from `historical/iris-dev-bridge-spec.md` Stage 4); baseline manifests enable *detection* ([§6.3](#63-the-instance-baseline-manifest)). |
+| **Profile specs** | **Written** | `vista-iris-dev-bridge-spec-public.md` and `…-va.md` fill the binding table ([§9](#9-environment-profiles--the-binding-points)). |
+| **Predecessor migration** | **Done** | Retired to `historical/iris-dev-bridge-spec.md`; mechanics → [§6.5](#65-round-trip-mechanics), FOIA reference facts → the public profile. |
 | **Runtime-seed sanitization** | **VA policy** | Cloning an official VistA for a dev runtime requires PHI sanitization governed by VA policy, not this core. |
 | **Discovery robustness** | **Risk** | Discovery must tolerate IRIS/VistA variants (locale, mapped %-routines, non-standard #9.4); covered by the instance-agnostic suite ([§13](#13-verification--parity-contract)). |
 | **Air-gapped tool pinning** | **Risk** | `m-cli` / `tree-sitter-m` versions must be pinned and mirrored so public and VA run the *same* toolchain ([§10](#10-the-transition-strategy-develop-public--deploy-va)). |
@@ -419,8 +437,8 @@ Suites 1–2 run **in public CI**; suite 3 re-runs them **in-boundary** as the t
 ## 16. References
 
 - **Core / siblings:** this document; `vista-iris-dev-bridge-spec-public.md` and
-  `vista-iris-dev-bridge-spec-va.md` (forthcoming profiles); `iris-dev-bridge-spec.md` (predecessor —
-  FOIA-instance-specific draft this generalizes).
+  `vista-iris-dev-bridge-spec-va.md` (the two environment profiles); `historical/iris-dev-bridge-spec.md`
+  (predecessor — FOIA-instance-specific draft this generalizes).
 - **Companions in this repo:** `vista-iris-container-spec-v3.md` (one example target instance + its build) ·
   `vista-dev-iris-tooling.md` (VA inner-loop tooling landscape) · `vscode-iris-editing.md`.
 - **Toolchain:** [`m-dev-tools`](https://github.com/m-dev-tools) — `m-cli`, `tree-sitter-m`, `m-test-engine`,
