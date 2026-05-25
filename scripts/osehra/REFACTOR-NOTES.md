@@ -156,10 +156,13 @@ CARE`, `SITE_NUMBER=6161`, `VOLUME_SET=VISTA` (→ box:volume `VISTA:IRIS`),
 
 ---
 
-## 6. Dockerfile (item H) — layers preserved
+## 6. Dockerfile (item H) — cached import preserved, image de-bloated (two-stage)
 
-- RUN invocations now call `python -m osehra <phase>`; `ENV PYTHONPATH=
-  /opt/vista/scripts` added so the package resolves.
+The Dockerfile is a **two-stage build**. The `builder` stage does the full
+install; the `final` stage ships only the finished instance as one flat layer.
+
+**`builder` stage** (throwaway — never shipped):
+- RUN invocations call `python -m osehra <phase>`; `ENV PYTHONPATH=/opt/vista/scripts`.
 - **Layer 1 (cached import)** copies only shared + import-side modules
   (`config/helper/session/state/prepare/__init__/__main__/phase3_license/
   phase5_import`) and runs `license` → `prepare.py` → `import`. The dispatcher's
@@ -167,8 +170,27 @@ CARE`, `SITE_NUMBER=6161`, `VOLUME_SET=VISTA` (→ box:volume `VISTA:IRIS`),
   Phase 6/7/8 modules present.
 - **Layer 2 (iterated site build)** copies `steps_*` + `phase6/7/8` *after* the
   import, so editing the site build reuses the cached import layer (D14/E11).
-- Journal-purge after a clean `iris stop` (E11/E15) is intact in **both** layers.
-- The expensive import remains its own layer — **not** collapsed into the site build.
+- Journal-purge after a clean `iris stop` (E11/E15) intact in **both** layers.
+- The expensive import remains its own cached layer — **not** collapsed into the
+  site build. (Verified: a rebuild after this restructure cache-hit the whole
+  builder stage — 0 re-imports — and only re-ran the final flatten.)
+
+**`final` stage** (shipped) — fixes the single-stage bloat:
+- The single-stage image was 25.6 GB because (a) the ~6 GB `vista-m` source tree
+  `COPY`'d for the import lived in the image forever, and (b) IRIS stores each
+  database as one `IRIS.DAT`, so every RUN that modified it forced an OverlayFS
+  copy-up — the ~7 GB DB was stored once per RUN layer (import layer + site-build
+  layer ≈ 14 GB of the same growing file).
+- The final stage `FROM`s a clean base, installs only python3/pexpect (so an
+  operator can re-run an idempotent phase against a live instance), copies the
+  small driver package, then `COPY --from=builder /usr/irissys/{iris.cpf,mgr}` —
+  the finished instance as **one** layer. No source tree, no duplicated `.DAT`,
+  no dead import layer. All IRIS state lives under `/usr/irissys` and is
+  `irisowner`-owned, so the copy is faithful (no setuid/root files to mangle).
+- **Result: 25.6 GB → 11.9 GB (−54%), constant across rebuilds**; behavior
+  identical (`make verify` §10 checks pass; idempotent phase re-run works in the
+  slim image). The builder stage's per-layer `.DAT` churn now lives only in the
+  build *cache* (prunable via `make fresh`), never in the shipped image.
 
 ---
 

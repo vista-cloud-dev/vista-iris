@@ -4,12 +4,26 @@
 # Strategy A: bake VistA into the image at build time so `up` boots a loaded
 # instance (see spec §7).
 #
+# Two-stage build (spec v3 §11.1 — build hygiene):
+#   * stage `builder` does the full install — keeping the import as its own
+#     CACHED layer so iterating the site build never re-imports;
+#   * stage `final` copies ONLY the finished IRIS instance into a clean base as a
+#     single flat layer. This avoids the single-stage bloat where (a) the ~6 GB
+#     vista-m source tree lived in the image forever and (b) every RUN that
+#     modified a database forced OverlayFS to copy-up the whole IRIS.DAT, storing
+#     it once per layer. The final image holds the final instance state exactly
+#     once, so its size stays put across rebuilds (~half the single-stage size).
+#
 # Base image: InterSystems IRIS *for Health* Community — bundles the HL7 v2 /
 # FHIR interoperability engine (the FHIR server is retained, per spec §4). The
 # Makefile selects the per-arch tag (verified on Docker Hub 2026-05):
 #   amd64 -> latest-cd-linux-amd64   arm64 (Apple Silicon) -> latest-cd-linux-arm64
 ARG IRIS_TAG=latest-cd-linux-arm64
-FROM intersystems/irishealth-community:${IRIS_TAG}
+
+# ============================================================================
+# Stage 1: builder — the full VistA install (throwaway; not shipped)
+# ============================================================================
+FROM intersystems/irishealth-community:${IRIS_TAG} AS builder
 
 # As root, add Python 3 + pexpect: the routine/global import and the interactive
 # VistA site build run from a cleaned OSEHRA Python fork (scripts/osehra/,
@@ -79,6 +93,37 @@ RUN iris start IRIS quietly \
 # global import journals heavily (GBs), which otherwise bloats the image and
 # overruns disk during the layer commit; after a clean shutdown the data is in
 # the .DAT and the journals aren't needed (IRIS recreates them on next start).
+# The builder stage is NOT shipped, so its per-layer .DAT copy-up is discarded.
+
+# ============================================================================
+# Stage 2: final — clean base + the finished instance as ONE flat layer
+# ============================================================================
+FROM intersystems/irishealth-community:${IRIS_TAG} AS final
+
+# Runtime needs Python + pexpect ONLY so operators can re-run an idempotent phase
+# against a live instance (e.g. `iris exec ... python3 -m osehra postinstall`).
+USER root
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-pexpect \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/vista
+ENV PYTHONPATH=/opt/vista/scripts
+
+# The install driver package (small) — NOT the build-time source tree (the ~6 GB
+# vista-m), the packer, or the .script files, so none of that lands in the image.
+COPY --chown=irisowner:irisowner scripts/osehra/*.py  /opt/vista/scripts/osehra/
+
+# The finished IRIS instance, copied as a single layer. All instance state lives
+# under /usr/irissys (datadir); the delta from the stock base is the databases
+# (mgr/, incl. the imported VISTA DB + the compiled %ZSTART routine + security)
+# and the namespace/DB config (iris.cpf). Copying only these — not the unchanged
+# /usr/irissys/bin binaries (already in the base) — keeps the layer minimal.
+# COPY --from preserves the builder's ownership (all irisowner) and file modes.
+COPY --from=builder /usr/irissys/iris.cpf  /usr/irissys/iris.cpf
+COPY --from=builder /usr/irissys/mgr       /usr/irissys/mgr
+
+USER irisowner
 
 # The base image already exposes 1972 (superserver / RPC / xDBC) and 52773
 # (Management Portal + FHIR REST). Document the VistA-configured listeners:
