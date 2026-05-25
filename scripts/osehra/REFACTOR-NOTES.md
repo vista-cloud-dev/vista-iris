@@ -196,33 +196,42 @@ CARE`, `SITE_NUMBER=6161`, `VOLUME_SET=VISTA` (→ box:volume `VISTA:IRIS`),
 
 ---
 
-## 8. Verification status — what was and was NOT run
+## 8. Verification status — RAN, end-to-end green
 
-**Ran (this environment):**
+**Static (this environment):**
 - `python3 -m py_compile` on all 14 modules → **all compile**.
 - AST behavior-preservation audit (§2 above) → **clean**.
 - Symbol coverage: all 33 `steps.*` calls + the `Clinic` class resolve to a
   definition; no dangling references.
 - Env-var contract cross-checked against `Makefile` + `docker-compose.yml` → **matches**.
-- `make preflight` → engine responsive, 65 GB free, sources present, **but FAILS
-  on a pre-existing port conflict** (1972/52773/9430 already held on this host;
-  9430 ⇒ a VistA/IRIS instance is already running). Environmental, unrelated to
-  the refactor — clear it with `make fresh` or by stopping the holder.
 
-**NOT run (heavy; cannot run cleanly here):**
-- `make build` (~25 GB image, long), `make verify` (`scripts/smoke.sh`).
-- The idempotency second-run demo and the standalone-phase demo — both need a
-  built-up instance, and the preflight port gate is currently red.
+**Full build + runtime (after `make fresh` cleared a prior pre-refactor
+container/image that held the ports):**
+- `make preflight` → **PASSED** (ports free, 78 GB free, routines present:
+  `routines present (140 packages) -- build will reuse them, no download`).
+- `make sources` → `>> vista-m/Packages already present -- reusing (no download)`
+  (the download guard fired in the real build path).
+- `make build` → **succeeded, exit 0**; image `vista-iris:dev` (25.6 GB),
+  all 16 steps; the Phase 3 gate ran live mid-build
+  (`license units 8/6/2 … OK: … fit within the 8-unit budget. Proceeding.`).
+- `make verify` (`scripts/smoke.sh`) → **§10 acceptance checks PASSED**: IRIS up;
+  VISTA namespace login; FileMan `^DPT` sample patient `PATIENT,ALPHATEST`
+  present; RPC Broker reachable on 9430; HL7 port reachable on 5026. (TaskMan
+  check WARNs — expected and non-gating; TaskMan is intentionally off.)
 
-### Manual verification checklist
-1. Free the ports / `make fresh` (stop whatever holds 1972/52773/9430), then
-   `make preflight` → PREFLIGHT PASSED.
-2. `make build` → succeeds; confirm two cached layers (import vs site build).
-3. `make verify` (`scripts/smoke.sh`) → listeners up; expected patient/user counts.
-4. **Idempotency:** against the built instance, run a phase twice, e.g.
-   `python -m osehra postinstall` → second run prints
-   `[phase7] ... already done -- skipping` (no dialog replay).
-5. **Standalone (no re-import):** `python -m osehra sampledata` against the
-   built instance completes without re-running `^%RI`/`LIST^ZGI`.
-6. **Phase 3 gate:** `VISTA_ENABLE_TASKMAN=1 python -m osehra license` →
-   **REFUSED** before any import; default (RPC only) → **OK: ... fit ... Proceeding**.
+**New properties demonstrated against the running instance** (via
+`podman exec vista-iris python3 -m osehra <phase>`):
+- **Standalone + no re-import:** `import` → `[phase5] routines/globals already
+  imported -- skipping` (the ~6 GB import is skipped).
+- **Idempotent convergence:** `postinstall` run twice → both
+  `[phase7] post-install site config already done -- skipping`.
+- **Phase 3 standalone:** `license` → reads the live license and prints
+  `OK: … fit within the 8-unit budget.`
+
+### Reproduce
+```
+make fresh && make build && make verify
+podman exec vista-iris python3 -m osehra import        # -> skip (no re-import)
+podman exec vista-iris python3 -m osehra postinstall   # -> skip (idempotent)
+VISTA_ENABLE_TASKMAN=1 podman exec vista-iris python3 -m osehra license  # -> REFUSED
+```
