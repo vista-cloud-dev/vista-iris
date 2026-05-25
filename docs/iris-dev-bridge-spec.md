@@ -416,10 +416,12 @@ count** (LSP/parser indexing, git index churn) and **scoping** — and, for the 
   the WAN-latency-bound experience `isfs`-over-WAN would give.
 - **No code on the endpoint.** Files, git history, and build artifacts stay on the remote host; git
   operations run remotely. This satisfies the locked-down posture and keeps code inside the boundary.
-- **Boundary placement.** Prefer **self-hosted** remote dev — Remote-SSH to a VA dev host, or a self-hosted
-  workspace platform (e.g. Coder, or `devcontainer`-based provisioning) **within the ATO boundary** — over
-  public **GitHub Codespaces** when real systems/data must not leave the boundary. For *this*
-  fictitious-data container, hosted Codespaces is acceptable; the VA-realistic target is self-hosted.
+- **Boundary placement (self-hosted only).** The remote-dev platform **must** be self-hosted within the
+  ATO boundary — **Remote-SSH** to a VA dev host, or a self-hosted workspace platform (e.g. **Coder** or
+  `devcontainer`-based provisioning on Kubernetes). **GitHub Codespaces is not an option:** it is a GitHub
+  Enterprise *Cloud* feature, unavailable on the in-boundary **GitHub Enterprise Server (GHES)** the VA
+  mandates ([§12.5](#125-in-boundary-github-enterprise-server-git-ci-registry)). (Hosted Codespaces would
+  work for a throwaway *fictitious-data* demo outside the boundary — but that is not the VA target.)
 
 ### 12.2 One environment per developer — not a shared instance
 
@@ -428,7 +430,7 @@ count** (LSP/parser indexing, git index churn) and **scoping** — and, for the 
   IRIS would let developers clobber one another's routines mid-test, and IRIS Community's **8-unit license**
   (~6 concurrent sessions; [v3 §9](vista-iris-container-spec-v3.md)) cannot host a team *plus* their
   listeners. Per-developer IRIS instances are independent (each its own 8-unit budget) and cheap from the
-  **published GHCR image** (`make run`).
+  **published image** (`make run`; from the in-boundary registry — [§12.5](#125-in-boundary-github-enterprise-server-git-ci-registry)).
 - One sufficiently large remote host can run **N such containers** (image layers are shared, so the
   marginal cost per developer is the writable layer + journals, not another ~25 GB), or a platform
   (Coder / Kubernetes) provisions one workspace-with-IRIS per developer on demand.
@@ -471,6 +473,32 @@ Even remote, each workspace's LSP/git still index its files. Two levers shrink t
 | Concurrent edits / license cap | **§12.2** per-dev environment | each developer owns an isolated IRIS + tree; no cross-clobber |
 | 34k-file LSP/git cost per workspace | **§12.3** partial + sparse (+ Scalar) | materialize only the packages a developer owns |
 | Infra-only devs shouldn't pull routines | **§12.3 / Lever C** separate repo | `routines/` is its own repo/submodule |
+
+### 12.5 In-boundary GitHub Enterprise Server (git, CI, registry)
+
+The VA mandates an **internal GitHub Enterprise Server (GHES)** — self-hosted inside the boundary, *not*
+public github.com or GitHub Enterprise Cloud. The bridge's design is unaffected (git is git; a GHES remote
+is just a different URL), but **everything the build and dev loop fetch must resolve in-boundary**. The
+unifying constraint is **no public egress** — GHES is one expression of it.
+
+| Public path (today) | In-boundary equivalent |
+|---|---|
+| git remote on **github.com** | the VA **GHES** host (`https://<ghes-host>/<org>/…`) — remote URL only |
+| **Codespaces** dev environments | unavailable on GHES → self-hosted remote dev ([§12.1](#121-the-remote-dev-baseline-mandatory)) |
+| CI on **GitHub-hosted runners** (`ubuntu-24.04`, `ubuntu-24.04-arm`) | **self-hosted runners** (GHES ships none) — e.g. Actions Runner Controller on Kubernetes; the per-arch ARM matrix needs self-hosted ARM runners or a QEMU fallback |
+| image → **`ghcr.io`** | an **in-boundary OCI registry** — GHES Packages (where enabled) or Harbor / Artifactory / ECR; re-point `PUBLISHED_IMAGE` |
+| base image from **Docker Hub** (`intersystems/irishealth-community`) | an **internal mirror** of the InterSystems image (no public pull) |
+| tool/lang deps from public (pip `pexpect`; `m-cli` / `tree-sitter-m`; AGPL sources) | **vendored / internal mirrors** (internal PyPI, pinned binaries) |
+
+- **Identity / auth.** Git auth follows VA SSO (SAML / OIDC, PIV/CAC); HTTPS PATs or SSH keys per VA policy.
+- **AI tooling.** The `m-dev-tools-mcp` / Claude Code integration ([§3](#3-glossary)) may be restricted by
+  network policy; treat it as optional, not assumed.
+
+> **⚠ Cross-cutting (affects v3, not just the bridge).** Most of this is a **distribution reconciliation for
+> `vista-iris-container-spec-v3.md` §11** (its publish flow targets `ghcr.io` and GitHub-hosted ARM/amd64
+> runners) and the `Dockerfile` base-image source — *not* a change to the bridge itself. Tracked as an
+> [Open Question](#open-questions-flagged-not-resolved); v3 §11.2/§11.3 and `PUBLISHED_IMAGE` need an
+> in-boundary variant.
 
 ---
 
@@ -523,6 +551,10 @@ There are now **two `.m` trees**, with distinct roles — this must not be confl
 4. **Path to the image ([§13](#13-relationship-to-the-image-build-v3--vista-m)).** (a) dev tree as
    build input, (b) KIDS promotion, or (c) overlay-on-`vista-m/`?
 5. **Import type ([§9](#9-round-trip-mechanics)).** Keep `.int`, or promote the codebase to `.mac`?
+6. **In-boundary distribution ([§12.5](#125-in-boundary-github-enterprise-server-git-ci-registry)).** v3 §11
+   publishes to `ghcr.io` on GitHub-hosted runners; an in-boundary GHES deployment needs an internal
+   registry, self-hosted runners, and a mirrored InterSystems base image. Reconcile in
+   `vista-iris-container-spec-v3.md`.
 
 ---
 
