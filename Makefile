@@ -1,6 +1,6 @@
 # =====================================================================
 # VistA on IRIS — portable build + CI/CD chain
-# Implements docs/vista-iris-container-spec-v2.md §7.1 and §11.3.
+# Implements docs/vista-iris-container-spec-v3.md §11.1 and §11.3.
 #
 # Single, engine-agnostic entry point for: sources, build, up, down, verify,
 # lint, test, ci, clean. Podman-first (§3): ENGINE defaults to podman; override
@@ -61,12 +61,12 @@ ENABLE_HL7     ?= 0
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
 
-sources: ## Init/update the pinned VistA-M submodule into $(VISTA_M_DIR)/ (shallow)
-	@if git config -f .gitmodules --get submodule.$(VISTA_M_DIR).url >/dev/null 2>&1; then \
-	  echo ">> updating submodule $(VISTA_M_DIR) (shallow, pinned)"; \
+sources: ## Ensure VistA-M routines present in $(VISTA_M_DIR)/ (reuse if already downloaded)
+	@if [ -d "$(VISTA_M_DIR)/Packages" ] && [ -n "$$(ls -A '$(VISTA_M_DIR)/Packages' 2>/dev/null)" ]; then \
+	  echo ">> $(VISTA_M_DIR)/Packages already present -- reusing (no download)"; \
+	elif git config -f .gitmodules --get submodule.$(VISTA_M_DIR).url >/dev/null 2>&1; then \
+	  echo ">> fetching submodule $(VISTA_M_DIR) (shallow, pinned)"; \
 	  git submodule update --init --depth 1 -- "$(VISTA_M_DIR)"; \
-	elif [ -n "$$(ls -A '$(VISTA_M_DIR)' 2>/dev/null)" ]; then \
-	  echo ">> $(VISTA_M_DIR): present (vendored); using as-is"; \
 	else \
 	  echo ">> cloning $(VISTA_M_REPO) @ $(VISTA_M_TAG)"; \
 	  git clone --depth 1 --branch "$(VISTA_M_TAG)" "$(VISTA_M_REPO)" "$(VISTA_M_DIR)"; \

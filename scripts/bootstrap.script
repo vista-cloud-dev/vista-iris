@@ -1,5 +1,5 @@
 // =====================================================================
-// VistA-on-IRIS namespace bootstrap (IRIS-native, spec v2 §8 steps 1-2).
+// VistA-on-IRIS namespace bootstrap (IRIS-native, spec v3 §7 Phase 4).
 // Fed to the IRIS terminal by the Dockerfile:
 //     iris session IRIS < /opt/vista/scripts/bootstrap.script
 //

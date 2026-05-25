@@ -361,7 +361,7 @@ def scheduleOption(VistA, optionName, scheduleValue, scheduleTime="0030"):
 
 
 def setupHL7Listener(VistA, hl7_port, link_name="VISTA-MLLP"):
-    """Configure an HL7 (HL package) MLLP listener on hl7_port -- spec §8 step 8.
+    """Configure an HL7 (HL package) MLLP listener on hl7_port -- spec v3 §13 (deferred).
 
     DEFERRED / UNVERIFIED -- NOT CALLED by Phase 7 (log E7). Upstream OSEHRA only
     autostarts the Link Manager (HL AUTOSTART LINK MANAGER); it does not create a

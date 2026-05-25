@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# VistA on IRIS — container image (per docs/vista-iris-container-spec-v2.md §11.1)
+# VistA on IRIS — container image (per docs/vista-iris-container-spec-v3.md §11.1)
 # Strategy A: bake VistA into the image at build time so `up` boots a loaded
 # instance (see spec §7).
 #
@@ -13,7 +13,7 @@ FROM intersystems/irishealth-community:${IRIS_TAG}
 
 # As root, add Python 3 + pexpect: the routine/global import and the interactive
 # VistA site build run from a cleaned OSEHRA Python fork (scripts/osehra/,
-# spec §5.4) that drives `iris session` over pexpect.
+# spec v3 §12) that drives `iris session` over pexpect.
 USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-pexpect \

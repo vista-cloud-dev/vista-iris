@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 # =====================================================================
-# §10 acceptance smoke checks (spec docs/vista-iris-container-spec-v2.md §10).
+# §10 acceptance smoke checks (spec docs/vista-iris-container-spec-v3.md §10).
 # Shared by `make verify` and CI (.github/workflows/publish.yml) so local and CI
-# behavior are identical (§7.1/§11.3). Fail-loud: any failed check exits non-zero.
+# behavior are identical (§11). Fail-loud: any failed check exits non-zero.
 #
 # Config via environment (defaults match the Makefile / compose):
 #   ENGINE     container engine     (podman)

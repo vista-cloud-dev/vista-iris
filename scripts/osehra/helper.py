@@ -1,7 +1,7 @@
 """Interactive `iris session` driver for the VistA install.
 
 Cleaned, IRIS-only Python 3 fork of WorldVistA/VistA `Python/vista/OSEHRAHelper.py`
-(submodule pin b7aecb9), per spec docs/vista-iris-container-spec-v2.md §5.4.
+(submodule pin b7aecb9), per spec docs/vista-iris-container-spec-v3.md §12.
 
 Removed from upstream:
   * Windows/telnet (`ConnectWinCache`), GT.M (`ConnectLinuxGTM`), and SSH

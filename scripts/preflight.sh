@@ -26,6 +26,7 @@ ENGINE="${ENGINE:-podman}"
 IMAGE="${IMAGE:-vista-iris}"
 CONTAINER="${CONTAINER:-vista-iris}"
 MIN_DISK_GB="${MIN_DISK_GB:-40}"
+VISTA_M_DIR="${VISTA_M_DIR:-vista-m}"
 PORTS=(1972 52773 9430 5026)
 CLEAN=0
 [ "${1:-}" = "--clean" ] && CLEAN=1
@@ -103,13 +104,19 @@ else
   ok "${avail} GB free"
 fi
 
-# --- 6. build prerequisite: vista-m sources ---------------------------------
-hdr "VistA-M sources (build prerequisite)"
+# --- 6. build prerequisite: vista-m routines (download guard) ---------------
+# The VistA-M routines/globals are large (~GBs); once present they MUST NOT be
+# re-downloaded. This check is authoritative for the build: `make sources`
+# reuses an already-populated $VISTA_M_DIR/Packages and only fetches it when
+# absent (git submodule update / shallow clone).
+hdr "VistA-M routines ($VISTA_M_DIR)"
 root="$(cd "$(dirname "$0")/.." && pwd)"
-if [ -d "$root/vista-m/Packages" ] && [ -n "$(ls -A "$root/vista-m/Packages" 2>/dev/null)" ]; then
-  ok "vista-m/Packages present"
+pkgdir="$root/$VISTA_M_DIR/Packages"
+if [ -d "$pkgdir" ] && [ -n "$(ls -A "$pkgdir" 2>/dev/null)" ]; then
+  npkg=$(ls "$pkgdir" 2>/dev/null | wc -l | tr -d ' ')
+  ok "routines present (${npkg} packages) -- build will reuse them, no download"
 else
-  warn "vista-m not populated -- run 'make sources' before building"
+  warn "routines absent -- 'make sources' will download them (git submodule/clone)"
 fi
 
 # --- 7. prior vista-iris image (informational) ------------------------------

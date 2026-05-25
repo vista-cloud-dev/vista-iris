@@ -174,12 +174,19 @@ CARE`, `SITE_NUMBER=6161`, `VOLUME_SET=VISTA` (→ box:volume `VISTA:IRIS`),
 
 ## 7. Doc/code discrepancies found
 
-1. **Dockerfile header still cites spec v2.** Line 3 reads
-   `per docs/vista-iris-container-spec-v2.md §11.1` while later comments cite
-   `spec v3 §5.1`. spec v3 is now normative; the header reference is stale.
-   *(Left unchanged here — flag only; trivial to update.)*
-2. **`helper.py` docstring** cites `spec docs/vista-iris-container-spec-v2.md
-   §5.4`. Same stale-v2 reference. *(Flag only.)*
+1. **Stale spec-v2 references — RESOLVED.** Every `…-spec-v2.md` / "spec v2"
+   reference in code/scripts was re-pointed to the now-normative v3 (Dockerfile
+   header → §11.1, `helper.py` → §12, `Makefile` → §11.1/§11.3, `smoke.sh` → §10,
+   `bootstrap.script` → §7 Phase 4, `startup.script` → §7 Phase 9, the HL7 stub →
+   §13). The old "§8 step N" install-sequence numbering (v2) was remapped to the
+   v3 phase numbers in §7. Verified: no `spec v2` references remain in
+   `Dockerfile`/`Makefile`/`scripts/`.
+2. **Download guard added (preflight + `make sources`).** `make sources` now
+   short-circuits when `vista-m/Packages` is already populated
+   (`>> … already present -- reusing (no download)`) and only fetches the
+   submodule/clone when absent; `scripts/preflight.sh` reports it authoritatively
+   (`routines present (N packages) -- build will reuse them, no download`). This
+   prevents re-pulling the ~GB VistA-M routines on a rebuild.
 3. **Working-tree doc moves are out of scope for this session.** The working
    tree shows `docs/vista-iris-implementation-log.md`, `…-spec-v2.md`, and other
    docs *deleted from `docs/` and relocated to `docs/historical/`*. The refactor

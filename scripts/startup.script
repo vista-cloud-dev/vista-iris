@@ -1,5 +1,5 @@
 // =====================================================================
-// Install the IRIS %ZSTART startup hook (spec v2 §8 step 7 -- service control).
+// Install the IRIS %ZSTART startup hook (spec v3 §7 Phase 9 -- service control).
 // Fed to the IRIS terminal in the %SYS namespace by the Dockerfile:
 //     iris session IRIS -U %SYS < /opt/vista/scripts/startup.script
 //

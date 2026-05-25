@@ -40,7 +40,7 @@ def run():
     steps.scheduleOption(V, 'HL TASK RESTART', 'STARTUP')
     steps.scheduleOption(V, 'HL PURGE TRANSMISSIONS', '1D', scheduleTime='0045')
 
-    # HL7 MLLP listener on HL7_PORT (5026) -- spec §8 step 8. DEFERRED: the
+    # HL7 MLLP listener on HL7_PORT (5026) -- spec v3 §7 Phase 7. DEFERRED: the
     # "HL EDIT LOGICAL LINKS" option is a full-screen List Manager UI that pexpect
     # cannot drive reliably; an HL LOGICAL LINK (#870) listener needs a programmatic
     # FileMan/global approach instead. The HL7 Link Manager itself is already
