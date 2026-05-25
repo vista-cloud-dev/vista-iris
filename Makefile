@@ -56,7 +56,7 @@ ENABLE_TASKMAN ?= 0
 ENABLE_HL7     ?= 0
 
 .DEFAULT_GOAL := help
-.PHONY: help preflight fresh sources build up down verify lint test ci clean pull run stop license
+.PHONY: help preflight fresh sources build up down verify lint test ci clean trim pull run stop license
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
@@ -133,3 +133,15 @@ ci: ## CI/CD chain: lint -> build -> up -> verify -> test -> down (fail-loud)
 clean: ## Remove image, containers, and volumes for a clean ephemeral rebuild
 	-$(COMPOSE) down -v
 	-$(ENGINE) image rm $(IMAGE)
+
+trim: ## Reclaim disk: prune dangling images + build cache (keeps base, current image, instance)
+	@echo ">> pruning dangling (untagged, unreferenced) images + build cache."
+	@echo "   Kept: the base image, vista-iris:dev, and any running container."
+	@echo "   This reclaims orphaned layers left when a rebuild reassigns the :dev tag"
+	@echo "   (the previous build's unique .DAT layer becomes dangling). Layers shared"
+	@echo "   with the current image are deduplicated by the overlay store, so a clean"
+	@echo "   tree may report little to reclaim -- that is expected, not a failure."
+	-@$(ENGINE) image prune -f
+	-@$(ENGINE) builder prune -f
+	@echo ">> image store now:"; $(ENGINE) system df 2>/dev/null | sed 's/^/   /' || true
+	@echo "   (Deeper clean that also removes vista-iris images: 'make fresh' or 'make clean'.)"
