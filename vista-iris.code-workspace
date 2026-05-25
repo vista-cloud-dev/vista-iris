@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "name": "VISTA routines",
+      "uri": "isfs://vista-iris:VISTA/?type=rtn&flat=1"
+    }
+  ],
+  "settings": {
+    "intersystems.servers": {
+      "vista-iris": {
+        "webServer": { "scheme": "http", "host": "localhost", "port": 52773 },
+        "username": "_SYSTEM",
+        "password": "SYS"
+      }
+    },
+    "workbench.colorTheme": "InterSystems Default Light Modern"
+  }
+}

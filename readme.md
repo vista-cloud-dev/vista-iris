@@ -1,30 +1,40 @@
 # VistA on IRIS
 
-A containerized [VistA](https://github.com/WorldVistA/VistA-M) instance running on
-InterSystems **IRIS for Health** Community. The full VistA site build (routine/global
-import + the interactive FileMan/Kernel install, spec §5) is **baked into the image at
-build time**, so the container boots an already-loaded, operational instance.
+A containerized [VistA](https://github.com/WorldVistA/VistA-M) instance on InterSystems
+**IRIS for Health** Community. The entire VistA site build — routine/global import plus the
+interactive FileMan/Kernel install — is **baked into the image at build time**, so the
+container boots an already-loaded, operational instance.
 
-> **You do not need Python, Node, or any other runtime on your machine.** All of that
-> lives inside the image build, which runs in CI. To *use* VistA you only need Podman
-> (or Docker).
+> **No Python, Node, or other runtime needed on your machine.** That all lives in the image
+> build (which runs in CI). To *use* VistA you only need Podman (or Docker).
 
 ---
 
-## Quickstart (just want VistA running)
+## Contents
+
+- [Quickstart](#quickstart)
+  - [Using `make`](#using-make)
+- [IRIS Management Portal](#iris-management-portal)
+- [Edit VistA code in VS Code](#edit-vista-code-in-vs-code)
+- [Persistence](#persistence)
+- [Contributing (changing the build)](#contributing-changing-the-build)
+- [Documentation](#documentation)
+
+---
+
+## Quickstart
 
 **1. Install a container engine.**
 
 - **Linux:** [Podman](https://podman.io/docs/installation) (or Docker).
-- **macOS:** install Podman, then start its Linux VM once — give it a few GB of RAM
-  (IRIS Community is core-capped at ~20 cores):
+- **macOS:** install Podman and start its Linux VM once (IRIS Community is core-capped at ~20):
   ```bash
   brew install podman
   podman machine init --cpus 4 --memory 6144
   podman machine start
   ```
 
-**2. Run the prebuilt image** (one command — no clone, no build):
+**2. Run the prebuilt image** — one command, no clone, no build:
 
 ```bash
 podman run -d --name vista \
@@ -32,11 +42,11 @@ podman run -d --name vista \
   ghcr.io/vista-cloud-dev/vista-iris:latest
 ```
 
-> First pull is large (multi-GB — VistA ships gigabytes of globals). Subsequent runs are
-> instant. Docker users: substitute `docker` for `podman`.
+> First pull is multi-GB (VistA ships gigabytes of globals); later runs are instant.
+> Docker users: substitute `docker` for `podman`.
 
-This instance is **ephemeral**: stop and re-run to get a clean, freshly-loaded VistA.
-For data that survives restarts, see [Persistence](#persistence).
+The instance is **ephemeral** — `podman rm -f vista` and re-run for a clean, freshly-loaded
+VistA. For data that survives restarts, see [Persistence](#persistence).
 
 **3. You're operational.** What's now listening:
 
@@ -55,17 +65,11 @@ For data that survives restarts, see [Persistence](#persistence).
 | Mary Smith (nurse) | `fakenurse1` | `1Nur!@#$` | `MARYS123` |
 | Joe Clerk | `fakeclerk1` | `1Cle!@#$` | `CLERKJ123` |
 
-Open a VistA terminal directly:
+Open a VistA terminal: `podman exec -it vista iris session IRIS -U VISTA`.
 
-```bash
-podman exec -it vista iris session IRIS -U VISTA
-```
+### Using `make`
 
-Stop it: `podman rm -f vista`.
-
-### Using `make` instead
-
-If you have the repo checked out, the same consumer flow is wrapped in Make:
+With the repo checked out, the same consumer flow is wrapped in Make:
 
 ```bash
 make pull    # pull/refresh the published image
@@ -73,49 +77,74 @@ make run     # run it (ephemeral) — equivalent to the podman run above
 make stop    # stop & remove the container
 ```
 
-`make run` uses plain `podman run`, **not** Compose — `podman compose` can delegate to
-`podman-compose`, which is itself a Python tool and would reintroduce a host runtime
-dependency. The one-liner has no such dependency.
+`make run` uses plain `podman run`, **not** Compose: `podman compose` can delegate to
+`podman-compose` (a Python tool), reintroducing a host runtime dependency. The one-liner
+has none.
+
+---
+
+## IRIS Management Portal
+
+The browser-based IRIS admin console (configuration, SQL, the class/routine editor, FHIR),
+served on port **52773**. With the container running, open
+http://localhost:52773/csp/sys/UtilHome.csp and log in with the image defaults
+**`_SYSTEM`** / **`SYS`** (IRIS may force a password change on first login; credentials are
+build-configurable via `VISTA_USERNAME` / `VISTA_PASSWORD`).
+
+VistA lives in the **`VISTA`** namespace — switch to it with the namespace selector to
+browse its globals and routines. The portal is bound to `localhost` only.
+
+---
+
+## Edit VistA code in VS Code
+
+VistA's ~40k routines live **inside the IRIS database**, not as files on disk. With the
+container running, connect VS Code straight to it and edit routines in place
+(**save = compile on the server** — no export/import) using the InterSystems ObjectScript
+extension and the repo's `vista-iris.code-workspace`.
+
+→ **[Editing VistA code in VS Code](docs/vscode-vista-iris-guide.md)** — three one-time
+steps to a live VS Code ↔ IRIS editing setup, plus running code and troubleshooting.
 
 ---
 
 ## Persistence
 
-The Quickstart is intentionally disposable. To keep instance data across restarts, run
-with the consumer Compose file, which mounts a Durable %SYS volume:
+The Quickstart is intentionally disposable. To keep instance data across restarts, use the
+consumer Compose file, which mounts a Durable %SYS volume:
 
 ```bash
 podman compose -f docker-compose.run.yml up -d
 ```
 
-(See the comments in that file. Note the `podman-compose` caveat above — `docker compose`
-or Podman's Go compose provider avoid the Python dependency.)
+(See the comments in that file; `docker compose` or Podman's Go compose provider avoid the
+`podman-compose` Python dependency.)
 
 ---
 
 ## Contributing (changing the build)
 
-Only needed if you're modifying the image build itself (the install scripts in
-`scripts/osehra/`, the Dockerfile, etc.). This path builds locally and **does** require
-the VistA-M submodule and `make`:
+Only needed to modify the image build itself (the install driver in `scripts/osehra/`, the
+Dockerfile, etc.). This path builds locally and requires the VistA-M submodule and `make`:
 
 ```bash
-make sources   # init the pinned vista-m submodule
-make build     # build the image locally (the heavy, Python/pexpect-driven site build)
+make sources   # fetch the pinned vista-m submodule (reused if already present — no re-download)
+make build     # two-stage build of the image (the Python/pexpect-driven site build)
 make up        # start via docker-compose.yml (durable volume)
 make verify    # spec §10 acceptance checks
 make down
 make ci        # lint -> build -> up -> verify -> test -> down
+make trim      # reclaim disk: prune dangling images + build cache (keeps the current image)
 ```
 
-Run `make help` for the full target list. Publishing to GHCR is automated — see
-[`.github/workflows/publish.yml`](.github/workflows/publish.yml), which builds each arch
-on a native runner, smoke-tests it, and only then moves `:latest`.
+Run `make help` for the full target list. Publishing to GHCR is automated by
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml), which builds each arch on
+a native runner, smoke-tests it, and only then moves `:latest`.
 
 ---
 
 ## Documentation
 
-- [`docs/vista-iris-container-spec-v3.md`](docs/vista-iris-container-spec-v3.md) — the build/runtime spec (canonical; supersedes v2)
-- [`docs/vista-dev-iris-tooling.md`](docs/vista-dev-iris-tooling.md) — IRIS dev tooling
-- [`docs/va-trm-m-tools.md`](docs/va-trm-m-tools.md) — M tooling notes
+- [`docs/vista-iris-container-spec-v3.md`](docs/vista-iris-container-spec-v3.md) — canonical build & runtime spec
+- [`docs/vscode-vista-iris-guide.md`](docs/vscode-vista-iris-guide.md) — connect VS Code to the container and edit VistA code (VS Code ↔ IRIS)
+- [`scripts/osehra/REFACTOR-NOTES.md`](scripts/osehra/REFACTOR-NOTES.md) — install-driver architecture (phase-aligned, idempotent, standalone-runnable)
