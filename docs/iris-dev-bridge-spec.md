@@ -68,6 +68,8 @@ for routine development while IRIS remains the **runtime test target**:
   **push-back bridge** — incremental *and* batch (Stage 3) — in [§8](#8-the-ordered-stages).
 - The **round-trip mechanics** that make `.m` ⇄ IRIS lossless ([§9](#9-round-trip-mechanics)).
 - The **dev contract & verification** of round-trip fidelity ([§11](#11-dev-contract--verification)).
+- The **team distribution & scaling** model for locked-down VA endpoints — remote-dev baseline, one
+  IRIS per developer, and per-workspace footprint ([§12](#12-team-distribution--scaling)).
 
 ### Out of scope (guardrails)
 
@@ -110,7 +112,7 @@ for routine development while IRIS remains the **runtime test target**:
   adopt ObjectScript class tooling ([v3 §2](vista-iris-container-spec-v3.md)).
 - Not a two-way live mirror in v1 (DB→FS hooks are Stage 4, deferred).
 - Not a merge-conflict resolver for concurrent in-IRIS + on-disk edits (the v1 model forbids the
-  former; see [§13](#13-known-limitations-deferred-items--risks)).
+  former; see [§14](#14-known-limitations-deferred-items--risks)).
 - Not a globals/data sync, a KIDS builder, or a distribution mechanism.
 
 ---
@@ -223,10 +225,10 @@ reads a staged copy mounted/copied into the container. See [§8](#8-the-ordered-
 | Unmapped routines | `routines/Uncategorized/Routines/<NAME>.m` (with a reported count) | Deterministic placement for routines no #9.4 prefix claims (typically `%`-utilities / orphans), rather than guessing. |
 | Filename ↔ routine name | `%` ⇄ `_` (e.g. `%ZIS` ⇄ `_ZIS.m`); extension `.m` | Matches the existing `prepare.py` convention; bidirectional and lossless. |
 | Encoding & line endings | **ISO-8859-1** content; **LF** line endings; no trailing-whitespace rewrite; `.gitattributes` pins both | M is whitespace-sensitive at line start; CRLF or a reformat corrupts routines. |
-| Tree root | `routines/` at repo root (distinct from the `vista-m/` build submodule) | Keeps the *dev* source-of-truth separate from the *immutable build pin* ([§12](#12-relationship-to-the-image-build-v3--vista-m)). *Root name is an [Open Question](#open-questions-flagged-not-resolved).* |
+| Tree root | `routines/` at repo root (distinct from the `vista-m/` build submodule) | Keeps the *dev* source-of-truth separate from the *immutable build pin* ([§13](#13-relationship-to-the-image-build-v3--vista-m)). *Root name is an [Open Question](#open-questions-flagged-not-resolved).* |
 
 > The dev tree mirrors FOIA's *shape* but is **not** the `vista-m/` submodule and **not** sourced
-> from FOIA — it is generated from the running namespace ([§12](#12-relationship-to-the-image-build-v3--vista-m)).
+> from FOIA — it is generated from the running namespace ([§13](#13-relationship-to-the-image-build-v3--vista-m)).
 
 ---
 
@@ -312,7 +314,7 @@ Each stage follows the v3 phase idiom: *inputs → actions → what it prevents/
   (open-source **git-source-control**, or commercial **Deltanji**; `vista-dev-iris-tooling.md` §7.3).
 - **Status:** **Deferred.** The v1 contract funnels *all* authorship through the filesystem, so the
   mirror is unnecessary until multi-surface editing is required. Tracked in
-  [§13](#13-known-limitations-deferred-items--risks).
+  [§14](#14-known-limitations-deferred-items--risks).
 
 ---
 
@@ -392,7 +394,87 @@ Check **2** is the keystone: it proves files-as-truth is safe — that nothing i
 
 ---
 
-## 12. Relationship to the Image Build (v3) & `vista-m`
+## 12. Team Distribution & Scaling
+
+The dev tree is **~139 MB across ~33,941 `.m` files** ([§5](#5-validated-ground-truth-this-instance)).
+At that size **bandwidth is a non-issue**; the cost of "every developer has the whole tree" is **file
+count** (LSP/parser indexing, git index churn) and **scoping** — and, for the VA, the endpoint itself.
+
+> **Environmental assumption (normative).** VA developers work on locked-down, government-furnished
+> endpoints (GFE) that **cannot** host the toolchain, a ~34k-file tree, or a local IRIS. Therefore **all
+> development is remote**: the laptop runs *only* the VS Code client and a remote extension; the dev tree,
+> the `m-dev-tools` toolchain, git, and a per-developer IRIS instance run on a **remote dev host inside the
+> VA's accredited boundary**. The "download everything locally" problem is therefore **moot** — nothing of
+> substance is local. The scaling concerns *move to the remote host*: per-workspace file count, one IRIS
+> per developer, and the license budget.
+
+### 12.1 The remote-dev baseline (mandatory)
+
+- The endpoint is a **thin client**: VS Code + **Remote-SSH / Remote-Tunnels** (or a dev container). The
+  **VS Code Server** and all extensions (InterSystems ObjectScript, `tree-sitter-m-vscode`) run on the
+  remote host *next to* the files and IRIS — so editing, LSP, lint, and compile are **local-speed**, not
+  the WAN-latency-bound experience `isfs`-over-WAN would give.
+- **No code on the endpoint.** Files, git history, and build artifacts stay on the remote host; git
+  operations run remotely. This satisfies the locked-down posture and keeps code inside the boundary.
+- **Boundary placement.** Prefer **self-hosted** remote dev — Remote-SSH to a VA dev host, or a self-hosted
+  workspace platform (e.g. Coder, or `devcontainer`-based provisioning) **within the ATO boundary** — over
+  public **GitHub Codespaces** when real systems/data must not leave the boundary. For *this*
+  fictitious-data container, hosted Codespaces is acceptable; the VA-realistic target is self-hosted.
+
+### 12.2 One environment per developer — not a shared instance
+
+- Each developer gets their **own** environment = their branch's `routines/` tree **+ their own IRIS +**
+  the bridge. This is required, not a preference: Stage-3 `sync` **mutates the namespace**, so a shared
+  IRIS would let developers clobber one another's routines mid-test, and IRIS Community's **8-unit license**
+  (~6 concurrent sessions; [v3 §9](vista-iris-container-spec-v3.md)) cannot host a team *plus* their
+  listeners. Per-developer IRIS instances are independent (each its own 8-unit budget) and cheap from the
+  **published GHCR image** (`make run`).
+- One sufficiently large remote host can run **N such containers** (image layers are shared, so the
+  marginal cost per developer is the writable layer + journals, not another ~25 GB), or a platform
+  (Coder / Kubernetes) provisions one workspace-with-IRIS per developer on demand.
+
+### 12.3 Keeping the per-workspace footprint small
+
+Even remote, each workspace's LSP/git still index its files. Two levers shrink that:
+
+- **Partial + sparse checkout (Lever A).** Clone with `--filter=blob:none` (blobs fetched on demand) and
+  **sparse-checkout** the packages a developer owns (cone mode); the rest exist in the repo but are not
+  materialized. Wrap in **Scalar** for background maintenance + a filesystem monitor when the file *count*
+  (not size) is the bottleneck. Git LFS does **not** apply — these are diffable text, not large binaries.
+- **Separate routines repo (Lever C).** Keep `routines/` in its **own repository** (or submodule),
+  mirroring the existing `vista-m/` pattern, so container/build-only work never pulls the 34k-file tree.
+
+### 12.4 Topology
+
+```
+ Locked-down GFE laptop                VA dev host / workspace platform (inside the boundary)
+ ┌────────────────────┐    remote      ┌──────────────────────────────────────────────────────┐
+ │ VS Code (client)   │    channel     │ Per-developer workspace                                │
+ │  + Remote extension│◀─────────────▶ │  • routines/  (sparse: only my packages) ──┐  git     │
+ │  (thin; no files)  │   (SSH/tunnel) │  • m-dev-tools m-cli + tree-sitter-m        │          │
+ └────────────────────┘                │  • bridge: export / sync / m watch          ▼          │
+                                        │  • own IRIS (own 8-unit license)     ┌─────────────────┐
+                                        │        ▲  Stage-3 sync (.m → .int ck) │  routines repo  │
+                                        │        └──────────────────────────── │   (Lever C)     │
+                                        └───────────────────────────────────────┴─────────────────┘
+```
+
+> **⚠ Reconciliation (no host mount — §5/§6).** [§5](#5-validated-ground-truth-this-instance) found the
+> *as-built* running container has no bind mount, so [§6](#6-architecture-overview) routes Stage-1 export
+> through a copy-out. In the **dev** topology the workspace tree is **bind-mounted into the dev container**,
+> so export writes straight into `routines/` and `sync` reads it in place — the copy step is a property of
+> the published *runtime* image, not the developer environment.
+
+| Concern | Lever | Effect |
+|---|---|---|
+| Endpoint can't host tooling/files/IRIS | **§12.1** remote-dev baseline | laptop is a thin VS Code client; everything runs remotely, in-boundary |
+| Concurrent edits / license cap | **§12.2** per-dev environment | each developer owns an isolated IRIS + tree; no cross-clobber |
+| 34k-file LSP/git cost per workspace | **§12.3** partial + sparse (+ Scalar) | materialize only the packages a developer owns |
+| Infra-only devs shouldn't pull routines | **§12.3 / Lever C** separate repo | `routines/` is its own repo/submodule |
+
+---
+
+## 13. Relationship to the Image Build (v3) & `vista-m`
 
 There are now **two `.m` trees**, with distinct roles — this must not be conflated:
 
@@ -411,7 +493,7 @@ There are now **two `.m` trees**, with distinct roles — this must not be confl
 
 ---
 
-## 13. Known Limitations, Deferred Items & Risks
+## 14. Known Limitations, Deferred Items & Risks
 
 | Item | Status | Note / direction |
 |---|---|---|
@@ -425,7 +507,8 @@ There are now **two `.m` trees**, with distinct roles — this must not be confl
 | **Import as `.int` vs `.mac`** | **Open** | v1 imports `.int` (fidelity); `.mac` promotion would change routine type codebase-wide. |
 | **`.mac` vs `.INT` premise** | **[Validated] correction** | Instance stores `.INT`, not `.mac` ([§5](#5-validated-ground-truth-this-instance)). |
 | **Globals/data** | **Out of scope** | Routines only; `.zwr` round-trip is a possible later extension. |
-| **Path to the image (§12)** | **Open strategic** | How dev-tree changes get baked into a rebuilt image is undecided. |
+| **Path to the image (§13)** | **Open strategic** | How dev-tree changes get baked into a rebuilt image is undecided. |
+| **Remote dev platform + per-dev IRIS** | **Ops dependency** | The team model ([§12](#12-team-distribution--scaling)) needs an in-boundary remote dev host/platform that provisions one IRIS per developer; sizing, lifecycle, and cost are an ops concern outside this spec. |
 
 ### Open Questions (flagged, not resolved)
 
@@ -437,13 +520,13 @@ There are now **two `.m` trees**, with distinct roles — this must not be confl
 3. **Package assignment ambiguity.** Some routine prefixes map to multiple/overlapping packages in
    `^DIC(9.4,"C")`; the longest-prefix rule must define tie-breaking, and the `Uncategorized/` bucket
    needs a review policy.
-4. **Path to the image ([§12](#12-relationship-to-the-image-build-v3--vista-m)).** (a) dev tree as
+4. **Path to the image ([§13](#13-relationship-to-the-image-build-v3--vista-m)).** (a) dev tree as
    build input, (b) KIDS promotion, or (c) overlay-on-`vista-m/`?
 5. **Import type ([§9](#9-round-trip-mechanics)).** Keep `.int`, or promote the codebase to `.mac`?
 
 ---
 
-## 14. Key Technical Facts (Appendix A)
+## 15. Key Technical Facts (Appendix A)
 
 Each value verified against the live instance unless marked *(proposed)*.
 
@@ -466,7 +549,7 @@ Each value verified against the live instance unless marked *(proposed)*.
 
 ---
 
-## 15. References
+## 16. References
 
 - Companion specs in this repo: `vista-iris-container-spec-v3.md` (the image + runtime contract this
   bridges into) · `vista-dev-iris-tooling.md` (VA inner-loop tooling: `isfs`, XINDEX, KIDS, Deltanji) ·
