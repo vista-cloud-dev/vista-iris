@@ -116,6 +116,6 @@ on a native runner, smoke-tests it, and only then moves `:latest`.
 
 ## Documentation
 
-- [`docs/vista-iris-container-spec-v2.md`](docs/vista-iris-container-spec-v2.md) — the build/runtime spec
+- [`docs/vista-iris-container-spec-v3.md`](docs/vista-iris-container-spec-v3.md) — the build/runtime spec (canonical; supersedes v2)
 - [`docs/vista-dev-iris-tooling.md`](docs/vista-dev-iris-tooling.md) — IRIS dev tooling
 - [`docs/va-trm-m-tools.md`](docs/va-trm-m-tools.md) — M tooling notes

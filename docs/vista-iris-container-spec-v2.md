@@ -1,3 +1,5 @@
+> **Superseded by [`vista-iris-container-spec-v3.md`](vista-iris-container-spec-v3.md) (kept for history).**
+
 # VistA on IRIS — Containerized Instance Specification (v2)
 
 **Status:** Draft spec · **Version:** 2 · **Date:** 2026-05-23 · **Supersedes:** `vista-iris-container-spec.md` (v1) · **Scope:** A reproducible, lightweight, cross-platform (Linux + macOS, x86-64 + Apple Silicon) container that stands up a *functioning* VistA EHR instance — reachable by a CPRS client over **RPC** and by external systems over **HL7** — with sample patients, on InterSystems **IRIS for Health Community** (latest release), plus the inner-loop developer tooling a VA VistA developer would actually use.
