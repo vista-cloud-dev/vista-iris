@@ -46,7 +46,8 @@ routines on IRIS that:
    **function of the instance** it targets; nothing is hardcoded to FOIA or to any one site, namespace, data
    set, or FileMan data dictionary.
 3. **Presents an identical developer experience** whether run in the open public environment or inside the
-   VA's locked-down / GHES boundary, with a **smooth transition** from one to the other.
+   VA's locked-down, in-boundary environment (VA GitHub — GHEC-US/GHES), with a **smooth transition** from one
+   to the other.
 
 ### In scope
 
@@ -285,6 +286,12 @@ developer. Only the endpoints *behind* these differ ([Profile]).
 A developer **must not** be able to tell, from the editor and commands, which environment they are in. Any
 observable difference is a parity defect ([§13](#13-verification--parity-contract)).
 
+> **Parity boundary (remote-dev).** The thin-client remote-dev *experience* (VS Code Server + the same
+> extensions, running next to the files and IRIS) is **[Parity]**; the specific *platform* delivering it —
+> Codespaces in public, self-hosted Coder / Remote-SSH in the VA — is a **[Profile]** binding
+> ([§9](#9-environment-profiles--the-binding-points)). The parity claim is about the editor and commands, not
+> the launcher.
+
 ---
 
 ## 8. Git-first, Team, TDD model
@@ -396,13 +403,13 @@ The bridge is parameterized by **(target instance, environment profile, tier)**.
 
 | Repo / artifact | Contents | Public ↔ VA |
 |---|---|---|
-| **bridge tooling** | env-neutral core: instance adapter (discover/seed), export / `sync` / `watch`, `m-cli` config, parity suite | same code; built in public, **mirrored** to GHES |
+| **bridge tooling** | env-neutral core: instance adapter (discover/seed), export / `sync` / `watch`, `m-cli` config, parity suite | same code; built in public, **mirrored** in-boundary |
 | **routines tree(s)** | the `.m` code seed, per instance / site / tier (branches or repos) | many trees; same layout conventions |
 | **profile specs/config** | the two profiles + their concrete bindings | one repo each side, or shared with overrides |
 | **runtime-seed images** | the runnable VistA per target/tier | FOIA image (public) ↔ sanitized clones (VA) |
 
-The structure is **identical** across environments; only the **host** (github.com ↔ GHES) and **registry**
-differ ([§9](#9-environment-profiles--the-binding-points)).
+The structure is **identical** across environments; only the **host** (github.com ↔ VA GitHub — GHEC-US/GHES)
+and **registry** differ ([§9](#9-environment-profiles--the-binding-points)).
 
 ---
 

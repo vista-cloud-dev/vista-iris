@@ -10,7 +10,7 @@
 
 This is the **VA environment profile** of the dev-bridge core. **Thin by design:** it adds **no developer-facing
 requirements** (**[Parity]** lives in the core) and instead binds the core to the VA's **locked-down, in-boundary**
-services and records VA-specific constraints (air-gap, GHES, tiers, PHI). Public and VA are **never mixed**; the
+services and records VA-specific constraints (air-gap, VA GitHub, tiers, PHI). Public and VA are **never mixed**; the
 public bindings live in the sibling profile.
 
 > The developer experience is **identical** to public by contract ([core §7](vista-iris-dev-bridge-spec.md)).
