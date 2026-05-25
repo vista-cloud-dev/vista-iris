@@ -26,7 +26,7 @@ ARG IRIS_TAG=latest-cd-linux-arm64
 FROM intersystems/irishealth-community:${IRIS_TAG} AS builder
 
 # As root, add Python 3 + pexpect: the routine/global import and the interactive
-# VistA site build run from a cleaned OSEHRA Python fork (scripts/osehra/,
+# VistA site build run from a cleaned WorldVistA Python fork (scripts/vista/,
 # spec v3 §12) that drives `iris session` over pexpect.
 USER root
 RUN apt-get update \
@@ -34,7 +34,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/vista
-# The phases run as a package via `python -m osehra <phase>`; put the package
+# The phases run as a package via `python -m vista <phase>`; put the package
 # parent on the path so the dispatcher resolves it from any working directory.
 ENV PYTHONPATH=/opt/vista/scripts
 USER irisowner
@@ -47,13 +47,13 @@ USER irisowner
 # import code are unchanged. Iterating the site build below does NOT re-import.
 COPY --chown=irisowner:irisowner vista-m/  /opt/vista/vista-m/
 COPY --chown=irisowner:irisowner scripts/bootstrap.script  /opt/vista/scripts/bootstrap.script
-COPY --chown=irisowner:irisowner scripts/osehra/m/  /opt/vista/scripts/osehra/m/
+COPY --chown=irisowner:irisowner scripts/vista/m/  /opt/vista/scripts/vista/m/
 COPY --chown=irisowner:irisowner \
-     scripts/osehra/__init__.py scripts/osehra/__main__.py \
-     scripts/osehra/config.py scripts/osehra/helper.py \
-     scripts/osehra/session.py scripts/osehra/state.py scripts/osehra/prepare.py \
-     scripts/osehra/phase3_license.py scripts/osehra/phase5_import.py \
-     /opt/vista/scripts/osehra/
+     scripts/vista/__init__.py scripts/vista/__main__.py \
+     scripts/vista/config.py scripts/vista/helper.py \
+     scripts/vista/session.py scripts/vista/state.py scripts/vista/prepare.py \
+     scripts/vista/phase3_license.py scripts/vista/phase5_import.py \
+     /opt/vista/scripts/vista/
 # 1) namespace + mappings (Phase 4); 2) license/capacity gate BEFORE the import
 # (Phase 3 — refuses early if the requested services can't fit, vs failing ~40
 # min in); 3) pack routines.ro + globals.lst; 4) ^%RI / LIST^ZGI / ^ZTMGRSET
@@ -61,9 +61,9 @@ COPY --chown=irisowner:irisowner \
 # doesn't bloat the image. Fail-loud (spec v3 §5.1).
 RUN iris start IRIS quietly \
  && iris session IRIS < /opt/vista/scripts/bootstrap.script \
- && python3 -m osehra license \
- && python3 /opt/vista/scripts/osehra/prepare.py /opt/vista/vista-m /opt/vista/scripts/osehra/m -o /tmp/vista-build \
- && python3 -m osehra import \
+ && python3 -m vista license \
+ && python3 /opt/vista/scripts/vista/prepare.py /opt/vista/vista-m /opt/vista/scripts/vista/m -o /tmp/vista-build \
+ && python3 -m vista import \
  && rm -rf /tmp/vista-build \
  && iris stop IRIS quietly \
  && rm -f /usr/irissys/mgr/journal/20*
@@ -76,15 +76,15 @@ RUN iris start IRIS quietly \
 # here reuse the cached import layer. Each phase is idempotent + fail-loud.
 COPY --chown=irisowner:irisowner scripts/startup.script  /opt/vista/scripts/startup.script
 COPY --chown=irisowner:irisowner \
-     scripts/osehra/steps_fileman.py scripts/osehra/steps_osinit.py \
-     scripts/osehra/steps_postinstall.py scripts/osehra/steps_sampledata.py \
-     scripts/osehra/phase6_osinit.py scripts/osehra/phase7_postinstall.py \
-     scripts/osehra/phase8_sampledata.py \
-     /opt/vista/scripts/osehra/
+     scripts/vista/steps_fileman.py scripts/vista/steps_osinit.py \
+     scripts/vista/steps_postinstall.py scripts/vista/steps_sampledata.py \
+     scripts/vista/phase6_osinit.py scripts/vista/phase7_postinstall.py \
+     scripts/vista/phase8_sampledata.py \
+     /opt/vista/scripts/vista/
 RUN iris start IRIS quietly \
- && python3 -m osehra osinit \
- && python3 -m osehra postinstall \
- && python3 -m osehra sampledata \
+ && python3 -m vista osinit \
+ && python3 -m vista postinstall \
+ && python3 -m vista sampledata \
  && iris session IRIS -U %SYS < /opt/vista/scripts/startup.script \
  && iris stop IRIS quietly \
  && rm -f /usr/irissys/mgr/journal/20*
@@ -101,7 +101,7 @@ RUN iris start IRIS quietly \
 FROM intersystems/irishealth-community:${IRIS_TAG} AS final
 
 # Runtime needs Python + pexpect ONLY so operators can re-run an idempotent phase
-# against a live instance (e.g. `iris exec ... python3 -m osehra postinstall`).
+# against a live instance (e.g. `iris exec ... python3 -m vista postinstall`).
 USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-pexpect \
@@ -112,7 +112,7 @@ ENV PYTHONPATH=/opt/vista/scripts
 
 # The install driver package (small) — NOT the build-time source tree (the ~6 GB
 # vista-m), the packer, or the .script files, so none of that lands in the image.
-COPY --chown=irisowner:irisowner scripts/osehra/*.py  /opt/vista/scripts/osehra/
+COPY --chown=irisowner:irisowner scripts/vista/*.py  /opt/vista/scripts/vista/
 
 # The finished IRIS instance, copied as a single layer. All instance state lives
 # under /usr/irissys (datadir); the delta from the stock base is the databases

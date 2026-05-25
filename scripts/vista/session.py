@@ -33,7 +33,7 @@ def connect(logname):
     A local ``iris session`` may drop straight to the namespace prompt (OS
     authentication) or ask for credentials, depending on IRIS security. After
     sign-in we emit a bare CR so exactly one fresh prompt is pending -- the
-    OSEHRA steps assume each is entered at a prompt, and the first one is
+    WorldVistA steps assume each is entered at a prompt, and the first one is
     wait-first (harmless to write-first steps, whose next non-prompt match skips
     this extra prompt).
     """

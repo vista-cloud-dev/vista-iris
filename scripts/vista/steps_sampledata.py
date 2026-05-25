@@ -1,7 +1,7 @@
 """Phase 8 (Tier-1 sample data) steps.
 
 Verbatim from the former ``setup.py`` + the ``Clinic`` builder from
-``03_sampledata.py`` (cleaned IRIS-only OSEHRA fork): a NURS location, an
+``03_sampledata.py`` (cleaned IRIS-only WorldVistA fork): a NURS location, an
 orderable STREPTOZYME test + quick order, scheduling clinics, an inpatient ward
 with beds, the clinical users (doctor/nurse/clerk) with access/verify codes and
 e-signatures, the write-orders menu, and the fictitious patients (filed via

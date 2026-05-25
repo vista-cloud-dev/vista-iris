@@ -8,7 +8,7 @@ codes and e-signatures, the write-orders menu, and the fictitious patients.
 
 Each connection opens one at a time and is released cleanly (Community license
 discipline, log E8) -- handled by :mod:`session`. All identities are CLEARLY
-FICTITIOUS -- no real PHI. Run via: ``python -m osehra sampledata``.
+FICTITIOUS -- no real PHI. Run via: ``python -m vista sampledata``.
 """
 import time
 

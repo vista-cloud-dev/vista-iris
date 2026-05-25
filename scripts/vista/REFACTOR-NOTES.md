@@ -1,6 +1,6 @@
 # VistA-on-IRIS install driver — refactor notes (HOLISM)
 
-Behavior-preserving decomposition of the OSEHRA-derived install driver into a
+Behavior-preserving decomposition of the WorldVistA-derived install driver into a
 phase-aligned, idempotent, standalone-runnable Python package. **This was a
 refactor, not a rewrite:** the build still produces a functionally identical
 instance (same routines/globals, FileMan/Kernel install, domain/institution/
@@ -16,22 +16,22 @@ Governing reference: `docs/historical/vista-iris-implementation-log.md` (§5 D1�
 ### Before (1,999 lines of driver Python)
 | file | lines | role |
 |------|------:|------|
-| `setup.py` | 1,292 | **monolith** — every VistA dialog step (39 functions) carried from OSEHRA |
+| `setup.py` | 1,292 | **monolith** — every VistA dialog step (39 functions) carried from WorldVistA |
 | `00_import.py` | 67 | thin orchestrator: `^%RI` / `LIST^ZGI` / `^ZTMGRSET` |
 | `01_osinit.py` | 54 | thin orchestrator: device $I, MPI, DINIT/ZUSET |
 | `02_postinstall.py` | 58 | thin orchestrator: site config, institution, users-prep |
 | `03_sampledata.py` | 300 | orchestrator + `Clinic` class + CLINICS/PATIENTS data + per-file `_connect`/`_release` |
 | `config.py` | (in 228) | values + a local `connect()` |
-| `helper.py` | (in 228) | pexpect engine + unused OSEHRA methods |
+| `helper.py` | (in 228) | pexpect engine + unused WorldVistA methods |
 
 ### After (14-module package, 2,382 lines)
 | file | lines | role |
 |------|------:|------|
-| `__main__.py` | 57 | **dispatcher** — `python -m osehra <phase>` (lazy import per phase) |
+| `__main__.py` | 57 | **dispatcher** — `python -m vista <phase>` (lazy import per phase) |
 | `config.py` | 106 | **Phase 0** — single declarative config + license-budget helpers |
 | `session.py` | 108 | **centralized connection discipline** (connect / retry / clean release / context mgr) |
 | `state.py` | 103 | **idempotency** — completion ledger + end-state probes |
-| `helper.py` | 140 | pexpect `IRISSession` engine (dead OSEHRA methods removed) |
+| `helper.py` | 140 | pexpect `IRISSession` engine (dead WorldVistA methods removed) |
 | `phase3_license.py` | 90 | **Phase 3 (NEW)** — license/capacity gate before the import |
 | `phase5_import.py` | 78 | **Phase 5** — `^%RI` / `LIST^ZGI` / `^ZTMGRSET` (was `00_import.py`) |
 | `phase6_osinit.py` | 59 | **Phase 6** — device $I, MPI, DINIT/ZUSET (was `01_osinit.py`) |
@@ -50,7 +50,7 @@ not orchestration.
 ### Naming decision (refactor item B)
 Renamed the execution-order files (`00–03`) to **blueprint phase numbers**
 (`phase5/6/7/8`) for clarity. The dispatcher accepts both the name and the
-number: `python -m osehra import` ≡ `python -m osehra 5`.
+number: `python -m vista import` ≡ `python -m vista 5`.
 
 ---
 
@@ -79,7 +79,7 @@ AST-level comparison of every function body, old vs new:
 | removed | from | why safe |
 |---------|------|----------|
 | `startTaskMan()` | `setup.py` | defined, never called (TaskMan stays off, E16) |
-| `IRISSession.writectrl/send/login/ZN/exitToPrompt` | `helper.py` | **zero callers** in old or new code (OSEHRA telnet/remote carryover); release discipline now lives in `session.release` |
+| `IRISSession.writectrl/send/login/ZN/exitToPrompt` | `helper.py` | **zero callers** in old or new code (WorldVistA telnet/remote carryover); release discipline now lives in `session.release` |
 | `from pexpect import TIMEOUT` | `helper.py` | only used by the removed `exitToPrompt` |
 | per-file `_connect`/`_release`/`main` | `03_sampledata.py` | promoted to `session.py` (one definition) |
 
@@ -104,11 +104,11 @@ dependency, and Python-2 shims were already absent from the working `helper.py`
 ### Standalone dispatch (item E)
 Each phase opens its **own** connection and can run against a persistent instance:
 ```
-python -m osehra license      # Phase 3 (or: python -m osehra 3)
-python -m osehra import        # Phase 5
-python -m osehra osinit        # Phase 6
-python -m osehra postinstall   # Phase 7  — re-run WITHOUT re-importing
-python -m osehra sampledata    # Phase 8
+python -m vista license      # Phase 3 (or: python -m vista 3)
+python -m vista import        # Phase 5
+python -m vista osinit        # Phase 6
+python -m vista postinstall   # Phase 7  — re-run WITHOUT re-importing
+python -m vista sampledata    # Phase 8
 ```
 Run from anywhere with `PYTHONPATH=/opt/vista/scripts` (set in the Dockerfile).
 
@@ -150,7 +150,7 @@ One source of truth; env-var override names match the Makefile/compose contract
 | `VISTA_ENABLE_HL7` | `ENABLE_HL7` | `VISTA_ENABLE_HL7` | 0 (off) |
 | `VISTA_HL7_PORT` | `HL7_PORT` | (5026 published) | 5026 |
 
-Identity values unchanged: `DOMAIN=DEMO.OSEHRA.ORG`, `INSTITUTION=VISTA HEALTH
+Identity values unchanged: `DOMAIN=DEMO.VISTA.ORG`, `INSTITUTION=VISTA HEALTH
 CARE`, `SITE_NUMBER=6161`, `VOLUME_SET=VISTA` (→ box:volume `VISTA:IRIS`),
 `INSTANCE=IRIS`, `NAMESPACE=VISTA`.
 
@@ -162,7 +162,7 @@ The Dockerfile is a **two-stage build**. The `builder` stage does the full
 install; the `final` stage ships only the finished instance as one flat layer.
 
 **`builder` stage** (throwaway — never shipped):
-- RUN invocations call `python -m osehra <phase>`; `ENV PYTHONPATH=/opt/vista/scripts`.
+- RUN invocations call `python -m vista <phase>`; `ENV PYTHONPATH=/opt/vista/scripts`.
 - **Layer 1 (cached import)** copies only shared + import-side modules
   (`config/helper/session/state/prepare/__init__/__main__/phase3_license/
   phase5_import`) and runs `license` → `prepare.py` → `import`. The dispatcher's
@@ -242,7 +242,7 @@ container/image that held the ports):**
   check WARNs — expected and non-gating; TaskMan is intentionally off.)
 
 **New properties demonstrated against the running instance** (via
-`podman exec vista-iris python3 -m osehra <phase>`):
+`podman exec vista-iris python3 -m vista <phase>`):
 - **Standalone + no re-import:** `import` → `[phase5] routines/globals already
   imported -- skipping` (the ~6 GB import is skipped).
 - **Idempotent convergence:** `postinstall` run twice → both
@@ -253,7 +253,7 @@ container/image that held the ports):**
 ### Reproduce
 ```
 make fresh && make build && make verify
-podman exec vista-iris python3 -m osehra import        # -> skip (no re-import)
-podman exec vista-iris python3 -m osehra postinstall   # -> skip (idempotent)
-VISTA_ENABLE_TASKMAN=1 podman exec vista-iris python3 -m osehra license  # -> REFUSED
+podman exec vista-iris python3 -m vista import        # -> skip (no re-import)
+podman exec vista-iris python3 -m vista postinstall   # -> skip (idempotent)
+VISTA_ENABLE_TASKMAN=1 podman exec vista-iris python3 -m vista license  # -> REFUSED
 ```

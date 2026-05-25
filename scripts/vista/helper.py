@@ -13,7 +13,7 @@ Modernized: spawns `iris session <instance> -U <namespace>` (not the legacy
 
 The expect surface (write / wait / wait_re / multiwait / IEN / getenv) is kept
 byte-for-byte compatible so the proven install sequences in the step modules
-(scripts/osehra/steps_*.py) run unchanged.
+(scripts/vista/steps_*.py) run unchanged.
 """
 import codecs
 import logging

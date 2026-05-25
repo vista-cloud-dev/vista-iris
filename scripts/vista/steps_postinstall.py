@@ -1,6 +1,6 @@
 """Phase 7 (post-install / site configuration) steps.
 
-Verbatim from the former ``setup.py`` (cleaned IRIS-only OSEHRA fork): HFS dir,
+Verbatim from the former ``setup.py`` (cleaned IRIS-only WorldVistA fork): HFS dir,
 resource-usage logging, intro text, device fixups, DOMAIN christening, box:volume
 + RPC Broker (XWB) listener port into #8994.1, volume set, TaskMan STARTUP
 scheduling (as *dormant* config), re-index, CAPRI login, System Manager, and
@@ -363,7 +363,7 @@ def scheduleOption(VistA, optionName, scheduleValue, scheduleTime="0030"):
 def setupHL7Listener(VistA, hl7_port, link_name="VISTA-MLLP"):
     """Configure an HL7 (HL package) MLLP listener on hl7_port -- spec v3 §13 (deferred).
 
-    DEFERRED / UNVERIFIED -- NOT CALLED by Phase 7 (log E7). Upstream OSEHRA only
+    DEFERRED / UNVERIFIED -- NOT CALLED by Phase 7 (log E7). Upstream WorldVistA only
     autostarts the Link Manager (HL AUTOSTART LINK MANAGER); it does not create a
     listening logical link. This would drive the HL7 "LLP" edit dialog (option
     HL EDIT LOGICAL LINKS) to define a single-listener TCP link on the published

@@ -1,6 +1,6 @@
 """Shared FileMan navigation primitives used by Phases 6, 7 and 8.
 
-Verbatim from the former ``setup.py`` (cleaned IRIS-only OSEHRA fork) -- the
+Verbatim from the former ``setup.py`` (cleaned IRIS-only WorldVistA fork) -- the
 write/wait sequences are unchanged; only their home moved so each phase imports
 exactly what it needs without pulling in a monolith.
 """

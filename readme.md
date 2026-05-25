@@ -124,7 +124,7 @@ podman compose -f docker-compose.run.yml up -d
 
 ## Contributing (changing the build)
 
-Only needed to modify the image build itself (the install driver in `scripts/osehra/`, the
+Only needed to modify the image build itself (the install driver in `scripts/vista/`, the
 Dockerfile, etc.). This path builds locally and requires the VistA-M submodule and `make`:
 
 ```bash
@@ -147,4 +147,4 @@ a native runner, smoke-tests it, and only then moves `:latest`.
 
 - [`docs/vista-iris-container-spec-v3.md`](docs/vista-iris-container-spec-v3.md) — canonical build & runtime spec
 - [`docs/vscode-vista-iris-guide.md`](docs/vscode-vista-iris-guide.md) — connect VS Code to the container and edit VistA code (VS Code ↔ IRIS)
-- [`scripts/osehra/REFACTOR-NOTES.md`](scripts/osehra/REFACTOR-NOTES.md) — install-driver architecture (phase-aligned, idempotent, standalone-runnable)
+- [`scripts/vista/REFACTOR-NOTES.md`](scripts/vista/REFACTOR-NOTES.md) — install-driver architecture (phase-aligned, idempotent, standalone-runnable)

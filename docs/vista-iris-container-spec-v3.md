@@ -36,7 +36,7 @@ posture, and test users it exposes. The deliverable is an OCI image (published m
 GHCR) plus a portable `Makefile` + Compose setup, that:
 
 1. Boots IRIS for Health Community (latest continuous-delivery release).
-2. Loads the OSEHRA/WorldVistA "FOIA" VistA M codebase (routines + globals).
+2. Loads the WorldVistA "FOIA" VistA M codebase (routines + globals).
 3. Configures namespace, OS interface, FileMan/Kernel, institution, and the **RPC Broker
    (XWB) listener** so a CPRS / RPC client can connect.
 4. Loads Tier-1 sample data (institution, users, clinics, ward, patients).
@@ -125,7 +125,7 @@ GHCR) plus a portable `Makefile` + Compose setup, that:
 | **`%ZSTART`** | IRIS startup hook; IRIS calls `SYSTEM^%ZSTART` once at every instance start (no enable flag). The image installs it to start toggled VistA services. |
 | **Durable %SYS** | IRIS mechanism (`ISC_DATA_DIRECTORY`) for keeping instance data on a mounted volume outside the image layer. |
 | **`^%RI` / `^%RO`** | IRIS routine import / the routine-transfer file format `^%RI` reads. |
-| **`LIST^ZGI`** | OSEHRA global importer (vendored, IRIS-patched) that loads each `.zwr` listed in a manifest. |
+| **`LIST^ZGI`** | WorldVistA global importer (vendored, IRIS-patched) that loads each `.zwr` listed in a manifest. |
 | **`^ZTMGRSET`** | Kernel OS-manager setup; "system type 3" selects the Caché-compatible OS interface (correct for IRIS). |
 | **box:volume pair** | IRIS instance/volume-set identity VistA needs for TaskMan/RPC config; here `VISTA:IRIS`. |
 
@@ -144,9 +144,9 @@ gives provenance and, where relevant, the code that confirms it.
 | Container engine | **Podman primary, Docker drop-in compatible** | Daemonless/rootless; identical `Dockerfile`/Compose under both. | v2 §3 · `Makefile` (`ENGINE ?= podman`) |
 | Build strategy | **Strategy A — bake at build time** | Boots in seconds; fully reproducible; ephemeral by default. | v2 §7 · `Dockerfile` |
 | VistA-M source | `WorldVistA/VistA-M`, **pinned shallow submodule @ `b7aecb9`** | Avoids ~20 GB of history in repo; reproducible pin. | log Q1/§10 · `.gitmodules`, submodule gitlink |
-| Installer | **Cleaned, IRIS-only Python 3 fork** of the OSEHRA import/config path, driven over `iris session` via pexpect | The proven VistA site build is a branching, expect-driven dialog a flat stream can't drive; GT.M/Caché-2011/EWD/dashboards/fakes removed. | v2 §5 · log Q2 · `scripts/osehra/` |
+| Installer | **Cleaned, IRIS-only Python 3 fork** of the WorldVistA import/config path, driven over `iris session` via pexpect | The proven VistA site build is a branching, expect-driven dialog a flat stream can't drive; GT.M/Caché-2011/EWD/dashboards/fakes removed. | v2 §5 · log Q2 · `scripts/vista/` |
 | Import mechanism | **`prepare.py` → `^%RI` → `LIST^ZGI` → `^ZTMGRSET` type 3** (not `$SYSTEM.OBJ.ImportDir`) | `ImportDir`/`Load` reject raw `.m`/`.zwr` (Err #5840). | log D4/E2 · `00_import.py`, `prepare.py` |
-| Global importer | Vendored **IRIS-patched `ZGI.m`** (`$ZV["IRIS"`) | Upstream `ZGI.m` recognizes only Caché/GT.M. | log D5/E3 · `scripts/osehra/m/ZGI.m` |
+| Global importer | Vendored **IRIS-patched `ZGI.m`** (`$ZV["IRIS"`) | Upstream `ZGI.m` recognizes only Caché/GT.M. | log D5/E3 · `scripts/vista/m/ZGI.m` |
 | Layering | **Cached import layer + separately iterated site-build layer** | Iterating the site build must not re-import ~GBs of routines/globals. | log §4 · `Dockerfile` |
 | Patient creation | **Programmatic `UPDATE^DIE`** into #2, not the registration menu | The menu hangs on "Searching the MVI…" (`MPIFXMLP`) in a standalone instance. | log D10/E9 · `setup.py:addPatient` |
 | RPC start mechanism | **IRIS `%ZSTART` hook** jobs `ZISTCP^XWBTCPM1` — **not** TaskMan | TaskMan cold-start exhausts the 8-unit Community license. | log D11/D12/E16 · `startup.script` |
@@ -243,9 +243,9 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
 
 ### Phase 0 — Configuration
 
-- **Inputs:** defaults in `scripts/osehra/config.py`, overridable by environment.
+- **Inputs:** defaults in `scripts/vista/config.py`, overridable by environment.
 - **Actions:** establish the single source of truth: `INSTANCE=IRIS`, `NAMESPACE=VISTA`,
-  `DOMAIN=DEMO.OSEHRA.ORG` (dotted, **no spaces**), `INSTITUTION="VISTA HEALTH CARE"`,
+  `DOMAIN=DEMO.VISTA.ORG` (dotted, **no spaces**), `INSTITUTION="VISTA HEALTH CARE"`,
   `VOLUME_SET=VISTA`, `RPC_PORT=9430`, `HL7_PORT=5026`, `SITE_NUMBER=6161`, plus the service
   toggles ([§9](#9-service--license-model)). `IRIS_TAG` and the toggles are also resolved in
   the `Makefile`/Compose for the engine layer.
@@ -347,7 +347,7 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
 
 - **Inputs:** the initialized instance; `02_postinstall.py`; `setup.py`.
 - **Actions, in upstream order:** set the primary **HFS** dir; remove resource-usage logging;
-  set intro text; configure NULL/console/HFS devices; **christen the DOMAIN** (`DEMO.OSEHRA.ORG`,
+  set intro text; configure NULL/console/HFS devices; **christen the DOMAIN** (`DEMO.VISTA.ORG`,
   dotted, no spaces); set the **box:volume pair** (`VISTA:IRIS`) and write the **RPC Broker
   (XWB) listener port** (`9430`) into RPC BROKER SITE PARAMETERS (#8994.1); set the volume set;
   **schedule** the startup options (`XWB LISTENER STARTER`, `XMRONT`, `HL AUTOSTART LINK
@@ -439,7 +439,7 @@ instance is bannered test-only; no real PHI.
 | Tier | Source | Content | Status |
 |---|---|---|---|
 | **0 — Built-in** | Globals shipped in VistA-M | Base reference files (and any FOIA test patients in `^DPT`). | Loaded in Phase 5. |
-| **1 — OSEHRA test setup** | `02_postinstall.py` + `03_sampledata.py` (forked from `PostImportSetupScript`/`ClinicSetup`) | Institution + division, System Manager, three clinical users, clinics, a ward, an orderable test, and three patients. | **Default in v3.** |
+| **1 — WorldVistA test setup** | `02_postinstall.py` + `03_sampledata.py` (forked from `PostImportSetupScript`/`ClinicSetup`) | Institution + division, System Manager, three clinical users, clinics, a ward, an orderable test, and three patients. | **Default in v3.** |
 | **2 — Rich demo DB** | VEHU-/Astronaut-style dataset | Many longitudinal patients. | **Deferred** (license/availability). |
 | **3 — Synthetic** | Synthea → HL7/FHIR → ingest | Arbitrarily large cohorts. | **Deferred** (depends on the HL7/FHIR-import path; needs the deferred `#870` listener). |
 
@@ -663,7 +663,7 @@ vista-iris/
 │   ├── bootstrap.script             Phase 4: VISTA db + namespace + mappings (IRIS-native)
 │   ├── startup.script               Phase 9: installs the toggle-driven %ZSTART hook
 │   ├── license.script               `make license` report (units + per-service procs)
-│   └── osehra/                      Cleaned, IRIS-only Python 3 fork of the OSEHRA driver
+│   └── vista/                      Cleaned, IRIS-only Python 3 fork of the WorldVistA driver
 │       ├── config.py                Phase 0: env-overridable settings + connect()
 │       ├── helper.py                `iris session` pexpect driver (write/wait/multiwait)
 │       ├── prepare.py               Packs routines.ro (^%RO) + globals.lst
@@ -676,7 +676,7 @@ vista-iris/
 └── vista-m/                         Pinned shallow submodule: WorldVistA/VistA-M @ b7aecb9
 ```
 
-> The legacy OSEHRA artifacts that were audited and **removed** in the fork (GT.M/YottaDB
+> The legacy WorldVistA artifacts that were audited and **removed** in the fork (GT.M/YottaDB
 > branches, the Caché-2011 installer, EWD.js, the CDash dashboard, run-time fetches from
 > personal repos, OS-spoofing/encryption-disable "fakes") are documented in v2 §5 and are
 > intentionally absent here.
@@ -697,7 +697,7 @@ vista-iris/
 | **Platform coverage** | arm64 validated locally; amd64 wired in CI | Both build in CI; amd64 not locally validated here. |
 | **IRIS vs Caché** | Adjusted | `%Z*`/`^%ZOSF`, locale, `irissession`→`iris session` handled; further `$ZU` edge cases possible. |
 | **Character set / locale** | Risk | IRIS is Unicode; FOIA VistA traditionally `enu8`. Lock the namespace locale; mismatches corrupt extended characters. |
-| **Forked-installer maintenance** | Risk | `scripts/osehra/` is a cleaned fork; re-sync with upstream `WorldVistA/VistA` deliberately, recording the commit. |
+| **Forked-installer maintenance** | Risk | `scripts/vista/` is a cleaned fork; re-sync with upstream `WorldVistA/VistA` deliberately, recording the commit. |
 | **No real PHI** | By design | Sample data only; instance bannered test-only. |
 
 ### Open Questions (flagged, not resolved)
@@ -728,7 +728,7 @@ log, recorded as historical color, not a build invariant.
 | Global / routine maps | `%Z*` global → VISTA; `%DT* %RCR %XU* %ZIS* %ZO* %ZT* %ZV*` routines → VISTA |
 | OS system type | `^ZTMGRSET` → 3 = Cache (VMS, NT, Linux), OpenM-NT |
 | OS init | `^DINIT` (MUMPS OPERATING SYSTEM → CACHE) + `^ZUSET` |
-| Domain / institution / division | `DEMO.OSEHRA.ORG` / `VISTA HEALTH CARE` (station 6100) / `VISTA MEDICAL CENTER` (6101) |
+| Domain / institution / division | `DEMO.VISTA.ORG` / `VISTA HEALTH CARE` (station 6100) / `VISTA MEDICAL CENTER` (6101) |
 | MPI / DINIT site number | `6161` (config default) |
 | Box:volume | `VISTA:IRIS` (volume-set anchor `VISTA`) |
 | Ports | 1972 superserver · 52773 portal/FHIR · 9430 RPC Broker · 5026 HL7 (published, listener deferred) |
@@ -793,5 +793,5 @@ separate effort could take. None is in scope for v3.
 ## 16. References
 
 - IRIS for Health Community — [Docker Hub `intersystems/irishealth-community`](https://hub.docker.com/r/intersystems/irishealth-community) · [InterSystems Container Registry](https://containers.intersystems.com/contents)
-- OSEHRA VistA M components — [`WorldVistA/VistA-M`](https://github.com/WorldVistA/VistA-M) · build/install automation (forked & cleaned) — [`WorldVistA/VistA`](https://github.com/WorldVistA/VistA)
+- WorldVistA VistA M components — [`WorldVistA/VistA-M`](https://github.com/WorldVistA/VistA-M) · build/install automation (forked & cleaned) — [`WorldVistA/VistA`](https://github.com/WorldVistA/VistA)
 - Companion docs in this repo: `vista-iris-implementation-log.md` (history) · `vista-iris-container-spec-v2.md` (superseded design spec) · `vista-dev-iris-tooling.md` · `va-trm-m-tools.md` · `vaec-vista-hosting-general.md` · `go-cli-selection-guide.md` · `dev-guide-streamlined-onboarding.md`

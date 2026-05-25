@@ -9,7 +9,7 @@ produced by ``prepare.py`` at build time.
 
 This is the expensive, cached layer; the idempotency guard makes a re-run a safe
 no-op so iterating later phases (or re-running standalone) never re-imports.
-Run via: ``python -m osehra import``.
+Run via: ``python -m vista import``.
 """
 import os
 

@@ -5,7 +5,7 @@ Was ``01_osinit.py``. Sets the TELNET/TRM device $I entries and the MPI local
 site number, then runs DINIT (MUMPS OPERATING SYSTEM -> CACHE) + ^ZUSET.
 (``^ZTMGRSET`` system-type setup already ran in Phase 5.)
 
-Run via: ``python -m osehra osinit``.
+Run via: ``python -m vista osinit``.
 """
 from . import config, session, state, steps_osinit
 from .helper import PROMPT

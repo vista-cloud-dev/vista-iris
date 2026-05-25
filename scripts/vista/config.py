@@ -42,7 +42,7 @@ PASSWORD = os.environ.get("VISTA_PASSWORD", "SYS")
 # DOMAIN is the messaging domain / DINIT site name (file #4.2) -- it must be
 # punctuation-restricted (dots/dashes, NO spaces; log E5/D7). INSTITUTION is the
 # facility name (file #4), where spaces are fine. These are distinct in VistA.
-DOMAIN = os.environ.get("VISTA_DOMAIN", "DEMO.OSEHRA.ORG")
+DOMAIN = os.environ.get("VISTA_DOMAIN", "DEMO.VISTA.ORG")
 INSTITUTION = os.environ.get("VISTA_INSTITUTION", "VISTA HEALTH CARE")
 SITE_NUMBER = os.environ.get("VISTA_SITE_NUMBER", "6161")
 # Volume-set name; on IRIS GETENV^%ZOSV reports "...^VISTA:IRIS", so "VISTA" is

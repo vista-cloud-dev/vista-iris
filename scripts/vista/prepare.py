@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Package VistA-M sources for import.
 
-Cleaned merge of OSEHRA Scripts/PackRO.py + PrepareMComponentsForImport.py
+Cleaned merge of WorldVistA Scripts/PackRO.py + PrepareMComponentsForImport.py
 (submodule pin b7aecb9), Python 3. Walks one or more M source trees and writes:
   routines.ro   the ^%RO routine-transfer file read by ^%RI
   globals.lst   absolute .zwr paths, one per line, read by LIST^ZGI

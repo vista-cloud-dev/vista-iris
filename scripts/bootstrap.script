@@ -8,7 +8,7 @@
 // globals in the VISTA database rather than the shared system library.
 //
 // Routines, globals, and the OS manager setup are loaded afterward by the
-// Python fork: `python -m osehra import` (Phase 5: ^%RI / LIST^ZGI / ^ZTMGRSET).
+// Python fork: `python -m vista import` (Phase 5: ^%RI / LIST^ZGI / ^ZTMGRSET).
 // Fail-loud: any error halts so a broken build cannot produce a runnable image.
 // =====================================================================
 zn "%SYS"

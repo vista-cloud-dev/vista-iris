@@ -1,4 +1,4 @@
-"""Dispatcher -- ``python -m osehra <phase>`` runs one install phase standalone.
+"""Dispatcher -- ``python -m vista <phase>`` runs one install phase standalone.
 
 Each phase opens its OWN ``iris session`` connection (see :mod:`session`), is
 idempotent (a completed phase is a safe no-op; see :mod:`state`), and can be
@@ -9,9 +9,9 @@ can still dispatch its phase.
 
 Examples::
 
-    python -m osehra license       # Phase 3 (or: 3)
-    python -m osehra import        # Phase 5 (or: 5)
-    python -m osehra postinstall   # Phase 7 (or: 7) -- re-runnable, no re-import
+    python -m vista license       # Phase 3 (or: 3)
+    python -m vista import        # Phase 5 (or: 5)
+    python -m vista postinstall   # Phase 7 (or: 7) -- re-runnable, no re-import
 """
 import importlib
 import sys
@@ -32,7 +32,7 @@ ORDER = ["license", "import", "osinit", "postinstall", "sampledata"]
 
 def usage():
     nums = {name: num for num, name in ALIASES.items()}
-    sys.stderr.write("usage: python -m osehra <phase>\n")
+    sys.stderr.write("usage: python -m vista <phase>\n")
     sys.stderr.write("phases (blueprint #):\n")
     for name in ORDER:
         sys.stderr.write("  %-12s (Phase %s)  -> %s\n"

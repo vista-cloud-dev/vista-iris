@@ -15,7 +15,7 @@ message:
 
 The default posture (RPC only, TaskMan/HL7 off) fits comfortably, so the default
 build prints OK and continues unchanged. Read-only -> inherently idempotent.
-Run via: ``python -m osehra license``.
+Run via: ``python -m vista license``.
 """
 import re
 import sys

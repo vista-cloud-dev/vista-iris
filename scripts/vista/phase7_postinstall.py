@@ -6,7 +6,7 @@ text, device fixups, domain christening, box:volume + RPC Broker (XWB) listener
 on RPC_PORT, volume set, the TaskMan STARTUP scheduling (dormant config), re-index,
 System Manager, institution/division/MAS.
 
-Run via: ``python -m osehra postinstall``.
+Run via: ``python -m vista postinstall``.
 """
 from . import config, session, state, steps_postinstall as steps
 from .steps_fileman import reindexFile
