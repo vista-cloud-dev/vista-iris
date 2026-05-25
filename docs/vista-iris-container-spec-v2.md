@@ -429,20 +429,77 @@ vista-iris/
 
 ---
 
-## 14. Operational Flow (target end-state)
+## 14. License Model & Service Toggles
+
+InterSystems IRIS Community is **license-capped**, and that cap — not CPU or RAM — is the binding constraint when running VistA's background services. Services are therefore individually switchable, and license use is observable, so a deployment can be kept within budget.
+
+### 14.1 The caps (two independent dimensions)
+
+| Cap | Community value (measured) | Limits | API / control |
+|---|---|---|---|
+| **License units** | **8** | concurrent license-consuming connections/processes | `$SYSTEM.License.KeyLicenseUnits()` |
+| Max connections | 25 | hard ceiling on total connections | `$SYSTEM.License.MaxConnections()` |
+| Core cap (CPU) | ~20 cores | CPU parallelism (a separate dimension) | `--cpus` / `--cpuset-cpus` (§4) |
+
+The **8 license units** are the practical limit. They are **connection/process-based, not CPU-based** — CPU is the separate ~20-core cap. Kernel daemons are largely license-exempt; *application* connections (the RPC listener, TaskMan jobs, HL7 links, and each CPRS / `iris session` user) consume units.
+
+### 14.2 Per-service license footprint (measured on Community, 8 units)
+
+| Service / VistA component | Toggle (default) | Identifying routine | Units | Notes |
+|---|---|---|---|---|
+| IRIS core — daemons, superserver (1972), web/FHIR (52773) | always on | `%SYS*` | ~1–2 baseline | most daemons exempt |
+| **RPC Broker (XWB)** listener | `VISTA_ENABLE_RPC` (**on**) | `%ZISTCPS` → `XWBTCPM` | 1 + **1 per CPRS client** | the default cost |
+| **TaskMan** + scheduled STARTUP jobs | `VISTA_ENABLE_TASKMAN` (**off**) | `ZTM*` / `%ZTM*` | **exhausts 8/8** (~37 processes) | → `LICENSE LIMIT EXCEEDED` |
+| **HL7 Link Manager** | `VISTA_ENABLE_HL7` (**off**) | `HL*` | ~1 per active link | inert until the #870 listener exists (deferred) |
+| Interactive / CPRS user session | per connection | `VISTA` job | 1 per signed-in user | |
+
+Measured datapoints: **default (RPC only) = 2 units consumed / 6 free**; **`VISTA_ENABLE_TASKMAN=1` = 8/8 → `LICENSE LIMIT EXCEEDED`** (~37 processes spawned; even the report's own connection is then refused).
+
+### 14.3 Budgeting the 8 units
+
+| Configuration | Units | CPRS-client headroom |
+|---|---|---|
+| RPC only (default) | 2 | ~6 concurrent users |
+| RPC + TaskMan | 8 → over | none |
+| RPC + TaskMan + HL7 | ≫8 | not viable on Community |
+
+On Community, keep TaskMan/HL7 **off** (RPC Broker + ~6 clinical users). TaskMan-class background services require a larger, non-Community license.
+
+### 14.4 Toggles
+
+Each VistA service is switched by a container environment variable, read at boot by the `%ZSTART` hook (§8 step 7 / `scripts/startup.script`) so only enabled services start and consume units:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `VISTA_ENABLE_RPC` | `1` | start the RPC Broker (XWB) listener on `VISTA_RPC_PORT` |
+| `VISTA_RPC_PORT` | `9430` | RPC Broker port |
+| `VISTA_ENABLE_TASKMAN` | `0` | cold-start TaskMan (`^ZTMB`) + its scheduled STARTUP jobs |
+| `VISTA_ENABLE_HL7` | `0` | start the HL7 Link Manager (requires the #870 listener) |
+
+Set them via `docker-compose.yml` `environment:`, the host env (`VISTA_ENABLE_TASKMAN=1 podman compose up -d`), or `make run ENABLE_TASKMAN=1`. Defaults are chosen for **minimal license use**.
+
+### 14.5 Observability — `make license`
+
+`make license` reports, against the running instance: license units (total / consumed / available), max connections, the active toggles, and **every live process labeled by service** (RPC Broker / TaskMan / HL7 / VistA session / IRIS system) — so consumption is transparent and attributable to a component.
+
+> Caveat: when the pool is fully consumed (e.g., TaskMan on), even `make license` cannot connect to report it — read it from a config with headroom, or use `iris list` / a process count.
+
+---
+
+## 15. Operational Flow (target end-state)
 
 Once implemented, standing up the instance is `make`-driven and ephemeral (exact commands in the repository README):
 
 1. **Obtain sources** — `make sources` brings in the pinned VistA-M sources (vendored dir or submodule at the pinned tag).
 2. **Build and start** — `make build && make up` (Podman by default; `ENGINE=docker make ...` to use Docker) produces and runs the loaded instance on the latest IRIS for Health Community release.
-3. **Verify** — `make verify` runs the §10 checks: instance *running*; terminal login to `VISTA` reaches a VistA menu; FileMan inquiry returns a known sample patient; TaskMan active; **RPC Broker** accepts a connection on **9430**; **HL7 MLLP** accepts a connection on **5026**.
+3. **Verify** — `make verify` runs the §10 checks: instance *running*; terminal login to `VISTA` reaches a VistA menu; FileMan inquiry returns a known sample patient; the **RPC Broker** accepts a connection on **9430** (default-on). TaskMan and the HL7 MLLP listener (5026) are verified only when their toggles are enabled (§14). Use `make license` to review the license budget.
 4. **Develop** — attach VS Code (ObjectScript extension, `isfs`) to edit routines server-side; use XINDEX / M-Unit / KIDS / FileMan as in the VA inner loop.
 5. **Inspect (optional)** — open the Management Portal (and, on `irishealth-community`, the FHIR REST endpoint) in a browser.
 6. **Dispose / rebuild** — `make down && make up` (or `make clean` first) reproduces an identical instance; durable storage only if opted in.
 
 ---
 
-## 15. References
+## 16. References
 
 - InterSystems IRIS for Health Community Edition — [Docker Hub `intersystems/irishealth-community`](https://hub.docker.com/r/intersystems/irishealth-community) (track the latest `-cd` tag) · IRIS Community (non-health, no FHIR) — [`intersystems/iris-community`](https://hub.docker.com/r/intersystems/iris-community)
 - Deploy & Explore IRIS Community Edition — [InterSystems Docs (ACLOUD)](https://docs.intersystems.com/irislatest/csp/docbook/Doc.View.cls?KEY=ACLOUD)
