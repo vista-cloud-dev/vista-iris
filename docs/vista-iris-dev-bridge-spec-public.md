@@ -22,7 +22,10 @@ binding-point table ([core §9](vista-iris-dev-bridge-spec.md)) for open, public
 Open, collaborative development on **public github.com** with **public tooling**, against a **fake-data**
 VistA-on-IRIS — the FOIA build of `vista-iris-container-spec-v3.md`, treated as a given running instance
 ("forget that it had to be built"). This is the **reference environment** in which the bridge is built and
-validated before it transitions to the VA ([core §10](vista-iris-dev-bridge-spec.md)).
+validated before it transitions to the VA ([core §10](vista-iris-dev-bridge-spec.md)). This public org is
+also the **community collaboration surface**: FOIA-releasable code is mirrored out here, and outside
+contributions are reviewed on the public mirror before crossing into the VA via the core's **inbound
+airlock** ([core §10](vista-iris-dev-bridge-spec.md)).
 
 ## 2. Binding points [Profile]
 

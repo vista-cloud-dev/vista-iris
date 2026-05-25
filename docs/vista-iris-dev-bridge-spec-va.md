@@ -19,7 +19,8 @@ public bindings live in the sibling profile.
 ## 1. Scope
 
 Collaborative development inside the **VA accredited boundary**: locked-down GFE endpoints (thin VS Code remote
-clients), an **internal GitHub Enterprise Server (GHES)**, in-boundary mirrors, and **official VistA-on-IRIS**
+clients), in-boundary **VA GitHub** (primarily **GHEC-US** at `va.ghe.com` — FedRAMP-Moderate Cloud — with a
+self-hosted **GHES** alongside), in-boundary mirrors, and **official VistA-on-IRIS**
 instances (different namespace / FileMan DD / configuration / data than FOIA). The bridge **arrives by transition**
 from the public reference ([core §10](vista-iris-dev-bridge-spec.md)), not by independent development.
 
@@ -27,15 +28,15 @@ from the public reference ([core §10](vista-iris-dev-bridge-spec.md)), not by i
 
 | Binding point (core §9) | VA value |
 |---|---|
-| Git host / URL | internal **GitHub Enterprise Server** (`https://<ghes-host>/<org>/…`) |
+| Git host / URL | **GHEC-US** (`https://va.ghe.com/<org>/…` — FedRAMP-Moderate Cloud, **EMU** default) and/or self-hosted **GHES** (`https://github.ec.va.gov/<org>/…`) |
 | Container / OCI registry | **in-boundary OCI registry** (GHES Packages / Harbor / Artifactory / ECR) |
 | CI runners | **self-hosted** (e.g. Actions Runner Controller on Kubernetes); ARM via self-hosted runners or QEMU |
 | Package / dependency sources | **mirrored in-boundary** (internal PyPI; pinned `m-cli` / `tree-sitter-m`) |
 | Base image source | **internal mirror** of `intersystems/irishealth-community` |
-| Remote-dev platform | **self-hosted only** — Coder / Remote-SSH (**Codespaces unavailable on GHES**) |
+| Remote-dev platform | **self-hosted** — Coder / Remote-SSH; Codespaces exists on GHEC-US but is **policy-gated**, and is absent on GHES |
 | Runtime-seed source | **sanitized clone** of the official VistA at the relevant tier |
 | Data sensitivity / PHI | escalates by tier (fictitious → real); governed by VA policy |
-| Identity / auth | **VA SSO** (SAML/OIDC, PIV/CAC) |
+| Identity / auth | **VA SSO** (SAML/OIDC, PIV/CAC) via the enterprise IdP; access line is **`@va.gov` + PIV** — a credentialed contractor is *inside*, while under **EMU** a public-github.com account can't be added at all |
 | AI / MCP tooling | per VA network policy — treat `m-dev-tools-mcp` / Claude Code as **optional** |
 
 ## 3. In-boundary supply chain (no public egress)
@@ -44,8 +45,12 @@ Everything the build and dev loop fetch **must resolve in-boundary** (absorbed f
 
 - **Mirror** the published bridge image, the `m-cli` / `tree-sitter-m` binaries (pinned to the
   public-validated versions), and all language/tool dependencies.
-- **GHES specifics:** no GitHub-hosted runners (self-host them); Codespaces unavailable (self-hosted remote
-  dev only); re-point `PUBLISHED_IMAGE` to the in-boundary registry.
+- **Host specifics:** GHES ships no GitHub-hosted runners (self-host them) and no Codespaces; GHEC-US has
+  both, but boundary/FedRAMP policy gates Codespaces — so **self-hosted remote dev is the safe default
+  either way**. Re-point `PUBLISHED_IMAGE` to the in-boundary registry.
+- **Community contributions** cross the boundary only via the core's **inbound airlock** (review + scan +
+  cherry-pick from the public mirror), never by direct collaborator access — **EMU** forbids
+  public-github.com collaborators ([core §10](vista-iris-dev-bridge-spec.md)).
 - **Reconcile `vista-iris-container-spec-v3.md` §11** — its publish flow targets `ghcr.io` + GitHub-hosted
   runners and pulls the base image from Docker Hub; all three need in-boundary equivalents.
 - **Licensing:** `m-dev-tools` (AGPL-3.0) is invoked as a subprocess (CLI boundary); the mirrored binary keeps

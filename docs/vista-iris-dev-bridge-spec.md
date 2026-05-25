@@ -13,7 +13,8 @@ round-trip *mechanics* fold into this core; its live-instance *facts* become evi
 This is the **environment-neutral core contract** for a **git-first, instance-seeded, test-driven**
 development bridge for VistA M code running on InterSystems IRIS. It is written **once** and bound by **two
 parallel environment profiles** — **public** (open development on public github.com with public tooling) and
-**VA** (locked-down endpoints behind an internal GitHub Enterprise Server). The core **guarantees that a
+**VA** (locked-down endpoints behind in-boundary GitHub — primarily **GHEC-US** at `va.ghe.com`, with a
+self-hosted **GHES** alongside). The core **guarantees that a
 developer's VS Code and tooling experience is identical** in both environments; the profiles differ only in
 *where the services live*.
 
@@ -311,12 +312,12 @@ contract for writing the two parallel specs.
 
 | Binding point | Public profile | VA profile |
 |---|---|---|
-| Git host / URL | public **github.com** | internal **GitHub Enterprise Server** (`https://<ghes-host>/…`) |
+| Git host / URL | public **github.com** | in-boundary VA GitHub — **GHEC-US** (`va.ghe.com`) and/or self-hosted **GHES** (`github.ec.va.gov`) |
 | Container / OCI registry | GHCR / public | in-boundary registry (GHES Packages / Harbor / Artifactory / ECR) |
 | CI runners | GitHub-hosted | **self-hosted** (e.g. Actions Runner Controller) |
 | Package / dependency sources | public (PyPI, `m-cli`, npm) | **mirrored** in-boundary |
 | Base image source | Docker Hub (`intersystems/irishealth-community`) | **internal mirror** of the InterSystems image |
-| Remote-dev platform | Codespaces **or** Coder / Remote-SSH | **self-hosted only** (Coder / Remote-SSH; no Codespaces) |
+| Remote-dev platform | Codespaces **or** Coder / Remote-SSH | **self-hosted** (Coder / Remote-SSH); Codespaces exists on GHEC-US but is policy-gated, and is absent on GHES |
 | Runtime-seed source | FOIA fake-data image | **sanitized clone** of the official VistA (per tier) |
 | Data sensitivity / PHI | fictitious only | escalates by tier; PHI governed by VA policy |
 | Identity / auth | public OAuth / SSH keys | **VA SSO** (SAML/OIDC, PIV/CAC) |
@@ -347,6 +348,32 @@ then reaches the VA environment **without a rewrite**:
 > **What makes it smooth.** The **[Parity]** guarantee (the developer surface is unchanged), the **[Profile]**
 > quarantine (only bindings change), and **instance-agnosticism** (re-seed, don't re-engineer). The transition
 > touches the profile and the artifact mirror — **not** the bridge core or the developer's workflow.
+
+### Inbound contribution from the outside community
+
+§10 sends VA's *own* code outward (public → VA). The reverse flow — folding in work from the **outside
+developer community** (OSEHRA, WorldVistA, the FOIA releases, the M/MUMPS world) — needs its own discipline,
+because the boundary that protects operational code also **severs that community**: under the VA profile's
+**EMU** identity model, public-github.com accounts cannot be added as collaborators at all
+([VA profile §2](vista-iris-dev-bridge-spec-va.md)). Two mechanisms keep the channel open without breaching
+the boundary:
+
+- **Outbound mirror (publish).** A one-way mirror of FOIA-releasable repos from the in-boundary host to a
+  public presence (the public profile's github.com org). Push-only — the boundary is never reachable
+  inbound; the community gets read / fork / issue access.
+- **Inbound airlock (ingest).** Community PRs land on the **public mirror**; a maintainer reviews, scans
+  (license — cf. `m-dev-tools` AGPL-3.0, [§14](#14-known-limitations-deferred-items--risks); security;
+  PII/PHI), then **cherry-picks** accepted commits in-boundary. Humans + scanners gate every inbound commit;
+  nothing crosses automatically.
+- **Credential sustained partners.** Ongoing collaborators take the **`@va.gov` + PIV** path (VA profile §2)
+  — heavyweight per person, so reserve it for *relationships*, not crowd contribution.
+
+> **Policy basis.** Publishing-by-default has federal backing: **OMB M-16-21** (Federal Source Code Policy,
+> 2016 — release ≥20% of new custom code as OSS + inventory via code.gov) and the **SHARE IT Act** (Pub. L.
+> 118-187, 2024-12-23 — agencies *shall* share custom-developed code, with national-security / privacy
+> exemptions). Both frame the outbound mirror and its inventory as a compliance obligation. The **per-repo
+> clearance policy** (FOIA-releasable vs. internal-only, and who signs off) is VA-governed — an
+> [Open Question](#open-questions-flagged-not-resolved).
 
 ---
 
@@ -415,6 +442,9 @@ Suites 1–2 run **in public CI**; suite 3 re-runs them **in-boundary** as the t
    re-seed faithful?
 5. **Shared vs per-dev runtime seed at higher tiers.** Per-dev IRIS is clear at dev; pre-prod/prod testing model
    (and PHI access) needs definition in the VA profile.
+6. **Community-contribution clearance.** Which repos are FOIA-releasable (eligible for the outbound mirror /
+   inbound airlock, [§10](#10-the-transition-strategy-develop-public--deploy-va)) vs. internal-only, and who
+   signs off — VA-governed.
 
 ---
 
