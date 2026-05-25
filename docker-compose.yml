@@ -6,7 +6,9 @@
 # Base image is InterSystems IRIS *for Health* Community (FHIR server retained,
 # spec §4); track the LATEST Community release via IRIS_TAG.
 # Apple Silicon / arm64: select the arm64 base image without editing this file:
-#   IRIS_TAG=latest-cd-arm64 podman compose up --build -d
+#   IRIS_TAG=latest-cd-linux-arm64 podman compose up --build -d
+# (amd64 hosts: latest-cd-linux-amd64. InterSystems publishes explicit per-OS/arch
+#  tags; the Makefile auto-selects the right one via `uname -m`.)
 
 services:
   vista:
