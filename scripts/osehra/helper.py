@@ -12,15 +12,14 @@ Modernized: spawns `iris session <instance> -U <namespace>` (not the legacy
 `irissession`); Python 3 only; fixed ISO-8859-1 codec.
 
 The expect surface (write / wait / wait_re / multiwait / IEN / getenv) is kept
-byte-for-byte compatible so the proven install sequences in setup.py run
-unchanged.
+byte-for-byte compatible so the proven install sequences in the step modules
+(scripts/osehra/steps_*.py) run unchanged.
 """
 import codecs
 import logging
 import re
 
 import pexpect
-from pexpect import TIMEOUT  # noqa: F401  (used by exitToPrompt)
 
 ENCODING = "ISO-8859-1"
 
@@ -56,13 +55,6 @@ class IRISSession(object):
         self.connection.send(command + "\r")
         logging.debug("write: %s", command)
 
-    def writectrl(self, command):
-        self.connection.send(command)
-        logging.debug("writectrl: %s", command)
-
-    def send(self, command):
-        return self.write(command.strip())
-
     def wait(self, command, tout=15):
         """Wait for a literal string (or PROMPT)."""
         if command is PROMPT:
@@ -96,21 +88,7 @@ class IRISSession(object):
             return self.multiwait(command, tout)
         return self.wait_re(command, tout)
 
-    # -- higher-level helpers used by setup.py ------------------------------
-    def login(self, username, password):
-        # A local `iris session` enters the namespace directly; this is only
-        # exercised for remote/telnet logins, kept for call-site compatibility.
-        self.wait("Username:")
-        self.write(username)
-        self.wait("Password")
-        self.write(password)
-
-    def ZN(self, namespace):
-        self.wait(">")
-        self.write('ZN "%s"' % namespace)
-        self.namespace = namespace
-        self.prompt = namespace + ">"
-
+    # -- higher-level helpers used by the step modules ----------------------
     def getenv(self, volume):
         # Query the box:volume pair from the OS layer.
         self.write("D GETENV^%ZOSV W Y")
@@ -138,34 +116,13 @@ class IRISSession(object):
         self.IENumber = (self.connection.after or "").lstrip("\r\n")
         self.write("")
 
-    def exitToPrompt(self):
-        self.write("Quit")
-        while True:
-            try:
-                idx = self.multiwait(
-                    ["to continue", "Option:", self.prompt, "want to halt", "[0-9]+d[0-9]+"]
-                )
-            except TIMEOUT:
-                continue
-            if idx == 1:
-                self.write("Continue")
-                self.wait("Do you want to halt")
-                self.write("Y")
-                self.wait(self.prompt)
-                break
-            if idx == 2:
-                break
-            if idx == 3:
-                self.write("Y")
-            if idx == 4:
-                self.write("Q")
-            self.write("^")
-
     def close(self):
         """Halt the session and release its IRIS license slot.
 
         IRIS Community caps concurrent processes, so a step that opens several
         connections must close each before the next (else LICENSE LIMIT EXCEEDED).
+        The phases drive this via :func:`session.release`, which also waits for
+        EOF so the license deregisters synchronously (log E8).
         """
         try:
             self.write("h")

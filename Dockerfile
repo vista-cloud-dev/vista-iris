@@ -20,39 +20,57 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/vista
+# The phases run as a package via `python -m osehra <phase>`; put the package
+# parent on the path so the dispatcher resolves it from any working directory.
+ENV PYTHONPATH=/opt/vista/scripts
 USER irisowner
 
-# --- Layer 1 (expensive, cached): namespace + routine/global import -----------
-# Copy the pinned VistA-M sources + only the import-side scripts, so this layer
-# (which packs ~30k routines into routines.ro and loads ~GBs of globals) is
-# reused as long as the sources and import code are unchanged — iterating on the
-# site build below does NOT re-import.
+# --- Layer 1 (expensive, cached): license gate + namespace + routine/global import
+# Copy the pinned VistA-M sources + only the shared/import-side modules (Phase 0
+# config, connection discipline, idempotency state, the Phase 3 license check,
+# and the Phase 5 import driver), so this layer — which packs ~30k routines into
+# routines.ro and loads ~GBs of globals — is reused as long as the sources and
+# import code are unchanged. Iterating the site build below does NOT re-import.
 COPY --chown=irisowner:irisowner vista-m/  /opt/vista/vista-m/
 COPY --chown=irisowner:irisowner scripts/bootstrap.script  /opt/vista/scripts/bootstrap.script
 COPY --chown=irisowner:irisowner scripts/osehra/m/  /opt/vista/scripts/osehra/m/
-COPY --chown=irisowner:irisowner scripts/osehra/__init__.py scripts/osehra/helper.py scripts/osehra/config.py scripts/osehra/prepare.py scripts/osehra/00_import.py  /opt/vista/scripts/osehra/
-# 1) namespace + mappings (§8 1-2); 2) pack routines.ro + globals.lst; 3) ^%RI /
-# LIST^ZGI / ^ZTMGRSET (§8 3-5). routines.ro is built to /tmp and removed in the
-# same layer so it doesn't bloat the image. Fail-loud (§5.4).
+COPY --chown=irisowner:irisowner \
+     scripts/osehra/__init__.py scripts/osehra/__main__.py \
+     scripts/osehra/config.py scripts/osehra/helper.py \
+     scripts/osehra/session.py scripts/osehra/state.py scripts/osehra/prepare.py \
+     scripts/osehra/phase3_license.py scripts/osehra/phase5_import.py \
+     /opt/vista/scripts/osehra/
+# 1) namespace + mappings (Phase 4); 2) license/capacity gate BEFORE the import
+# (Phase 3 — refuses early if the requested services can't fit, vs failing ~40
+# min in); 3) pack routines.ro + globals.lst; 4) ^%RI / LIST^ZGI / ^ZTMGRSET
+# (Phase 5). routines.ro is built to /tmp and removed in the same layer so it
+# doesn't bloat the image. Fail-loud (spec v3 §5.1).
 RUN iris start IRIS quietly \
  && iris session IRIS < /opt/vista/scripts/bootstrap.script \
+ && python3 -m osehra license \
  && python3 /opt/vista/scripts/osehra/prepare.py /opt/vista/vista-m /opt/vista/scripts/osehra/m -o /tmp/vista-build \
- && python3 /opt/vista/scripts/osehra/00_import.py \
+ && python3 -m osehra import \
  && rm -rf /tmp/vista-build \
  && iris stop IRIS quietly \
  && rm -f /usr/irissys/mgr/journal/20*
 
 # --- Layer 2 (iterated): interactive VistA site build -------------------------
-# OS-init, post-install (institution, users, RPC Broker 9430), Tier-1 sample
-# data, then install the %ZSTART hook that auto-starts the RPC Broker listener
-# on every boot. Copied after the import so edits here reuse the cached import
-# layer. Each step is fail-loud (§5.4).
+# OS-init (Phase 6), post-install (Phase 7: institution, users, RPC Broker 9430),
+# Tier-1 sample data (Phase 8), then install the %ZSTART hook (Phase 9) that
+# auto-starts the RPC Broker listener on every boot. The verbatim dialog step
+# libraries (steps_*) + thin phase drivers are copied after the import so edits
+# here reuse the cached import layer. Each phase is idempotent + fail-loud.
 COPY --chown=irisowner:irisowner scripts/startup.script  /opt/vista/scripts/startup.script
-COPY --chown=irisowner:irisowner scripts/osehra/setup.py scripts/osehra/01_osinit.py scripts/osehra/02_postinstall.py scripts/osehra/03_sampledata.py  /opt/vista/scripts/osehra/
+COPY --chown=irisowner:irisowner \
+     scripts/osehra/steps_fileman.py scripts/osehra/steps_osinit.py \
+     scripts/osehra/steps_postinstall.py scripts/osehra/steps_sampledata.py \
+     scripts/osehra/phase6_osinit.py scripts/osehra/phase7_postinstall.py \
+     scripts/osehra/phase8_sampledata.py \
+     /opt/vista/scripts/osehra/
 RUN iris start IRIS quietly \
- && python3 /opt/vista/scripts/osehra/01_osinit.py \
- && python3 /opt/vista/scripts/osehra/02_postinstall.py \
- && python3 /opt/vista/scripts/osehra/03_sampledata.py \
+ && python3 -m osehra osinit \
+ && python3 -m osehra postinstall \
+ && python3 -m osehra sampledata \
  && iris session IRIS -U %SYS < /opt/vista/scripts/startup.script \
  && iris stop IRIS quietly \
  && rm -f /usr/irissys/mgr/journal/20*

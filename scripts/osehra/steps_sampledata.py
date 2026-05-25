@@ -1,55 +1,16 @@
-"""VistA site-build steps, driven over an interactive `iris session`.
+"""Phase 8 (Tier-1 sample data) steps.
 
-Cleaned, IRIS-only Python 3 fork of WorldVistA/VistA `Python/vista/OSEHRASetup.py`
-(submodule pin b7aecb9), per spec docs/vista-iris-container-spec-v2.md §5 / §5.4.
+Verbatim from the former ``setup.py`` + the ``Clinic`` builder from
+``03_sampledata.py`` (cleaned IRIS-only OSEHRA fork): a NURS location, an
+orderable STREPTOZYME test + quick order, scheduling clinics, an inpatient ward
+with beds, the clinical users (doctor/nurse/clerk) with access/verify codes and
+e-signatures, the write-orders menu, and the fictitious patients (filed via
+``UPDATE^DIE`` -- never the registration menu, which hangs on the MVI; log E9).
 
-Each function reproduces a *proven* OSEHRA write/wait sequence verbatim; the
-only edits are mechanical cleaning:
-  * ``if VistA.type == 'cache'`` branches -> always the IRIS (Cache-compatible)
-    path; ``sys.platform == 'win32'`` branches -> the POSIX path;
-  * dropped the ``TestHelper`` / CSV dependency (patients are passed in-line);
-  * Python 3 syntax.
-The single *addition* is setupHL7Listener() (spec §8 step 8) -- VistA's HL7 MLLP
-listener on a published port, which upstream OSEHRA does not configure. It is
-flagged UNVERIFIED below.
+All identities are CLEARLY FICTITIOUS -- no real PHI.
 """
-import datetime
-import re
-import time
-from tempfile import gettempdir
-
-from helper import PROMPT
-
-introText = """**************************************************
-  *  Welcome to VistA
-  **************************************************
-  *
-  * Use the following credentials for Robert Alexander
-  *   Access:  fakedoc1
-  *   Verify:  1Doc!@#$
-  *   Electronic Signature: ROBA123
-  *
-  * Use the following credentials for Mary Smith (Nurse)
-  *   Access:  fakenurse1
-  *   Verify:  1Nur!@#$
-  *   Electronic Signature: MARYS123
-  *
-  * Use the following credentials for Joe Clerk (Clerk)
-  *   Access:  fakeclerk1
-  *   Verify:  1Cle!@#$
-  *   Electronic Signature: CLERKJ123
-  *
-  * This instance was built from VistA-M %s on %s
-  * TEST SYSTEM -- fictitious data only, not for production or real PHI.
-  **************************************************
-"""
-
-
-def startFileman(VistA):
-    # Start FileMan as the programmer user; XUMF=1 permits editing Kernel files.
-    VistA.wait(PROMPT)
-    VistA.write('S DUZ=1 S XUMF=1 D Q^DI')
-    VistA.wait('Select OPTION:')
+from .helper import PROMPT
+from .steps_fileman import startFileman
 
 
 def signonZU(VistA, acc_code, ver_code):
@@ -68,602 +29,6 @@ def signonZU(VistA, acc_code, ver_code):
         VistA.wait('right:')
         VistA.write(ver_code + "!")
         VistA.wait('TYPE NAME:')
-    VistA.write('')
-
-
-def initializeFileman(VistA, site_name, site_number):
-    # Initialize FileMan (DINIT) and set the MUMPS OPERATING SYSTEM to CACHE
-    # (the Cache-compatible interface IRIS presents). ^ZUSET renames the ZU*
-    # routines. (^ZTMGRSET system-type setup already ran in 00_import.py.)
-    VistA.write('D ^DINIT')
-    VistA.wait('Initialize VA FileMan now?')
-    VistA.write('Yes')
-    VistA.wait('SITE NAME:')
-    VistA.write(site_name)
-    VistA.wait('SITE NUMBER')
-    VistA.write(site_number)
-    VistA.wait('Do you want to change the MUMPS OPERATING SYSTEM File?')
-    VistA.write('Yes')
-    VistA.wait('TYPE OF MUMPS SYSTEM YOU ARE USING')
-    VistA.write('CACHE')
-    VistA.wait(PROMPT, 60)
-    VistA.write('D ^ZUSET')
-    VistA.wait('Rename')
-    VistA.write('Yes')
-
-
-def setupPrimaryHFSDir(VistA, hfs_dir):
-    # Set the PRIMARY HFS DIRECTORY in Kernel System Parameters.
-    if hfs_dir == "@" or hfs_dir == '':
-        hfs_dir = gettempdir()
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('KERNEL SYSTEM PARAMETERS')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('PRIMARY HFS DIRECTORY')
-    VistA.wait('THEN EDIT FIELD')
-    VistA.write('')
-    VistA.wait('DOMAIN NAME')
-    VistA.write('`1')
-    VistA.wait('PRIMARY HFS DIRECTORY')
-    VistA.write(hfs_dir.rstrip('/') or '/')
-    index = VistA.multiwait(['SURE YOU WANT TO DELETE', 'DOMAIN NAME', 'PRIMARY HFS DIRECTORY'])
-    if index == 0:
-        VistA.write('Y')
-        VistA.wait('DOMAIN NAME')
-    if index == 2:
-        VistA.write('')
-        VistA.wait('DOMAIN NAME')
-    VistA.write('')
-    VistA.wait('Select OPTION:')
-    VistA.write('')
-
-
-def removeResourceUsageLogging(VistA):
-    # Disable Resource Usage logging (VOLUME SET + Kernel System Parameters).
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('VOLUME SET')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('LINK ACCESS')
-    VistA.wait('THEN EDIT FIELD')
-    VistA.write('')
-    VistA.wait('VOLUME SET')
-    VistA.write('`1')
-    VistA.wait('LINK ACCESS')
-    VistA.write('NO')
-    VistA.wait('VOLUME SET')
-    VistA.write('')
-    VistA.wait('Select OPTION:')
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('KERNEL SYSTEM PARAMETERS')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('LOG RESOURCE USAGE')
-    VistA.wait('THEN EDIT FIELD')
-    VistA.write('')
-    VistA.wait('DOMAIN NAME')
-    VistA.write('`1')
-    VistA.wait('LOG RESOURCE USAGE')
-    VistA.write('NO')
-    VistA.wait('DOMAIN NAME')
-    VistA.write('')
-    VistA.wait('Select OPTION:')
-    VistA.write('')
-
-
-def addMPILocalNumber(VistA):
-    VistA.wait(PROMPT)
-    VistA.write("W $$SITE^VASITE($$DT^XLFDT)")
-    VistA.wait(PROMPT)
-    localNum = re.search(r"\^([0-9]+)\W", VistA.lastconnection).groups()[0]
-    VistA.write("")
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('MASTER PATIENT INDEX (LOCAL')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('')
-    VistA.wait('MASTER PATIENT INDEX (LOCAL')
-    VistA.write('`1')
-    VistA.wait('SITE ID NUMBER')
-    VistA.write(localNum)
-    VistA.wait('LAST NUMBER')
-    VistA.write('^')
-    VistA.wait('MASTER PATIENT INDEX (LOCAL')
-    VistA.write('')
-    VistA.wait('Select OPTION:')
-    VistA.write('')
-
-
-def setupIntroText(VistA, introTextSHA):
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('KERNEL SYSTEM PARAMETERS')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('INTRO MESSAGE')
-    VistA.wait('THEN EDIT FIELD')
-    VistA.write('')
-    VistA.wait('DOMAIN NAME')
-    VistA.write('`1')
-    index = VistA.multiwait(['EDIT Option', '1>$'])
-    if index == 0:
-        VistA.write('D')
-        VistA.wait('Delete from line')
-        VistA.write('1')
-        VistA.wait('thru')
-        VistA.write('')
-        VistA.wait('OK TO REMOVE')
-        VistA.write('Y')
-        VistA.wait('ARE YOU SURE')
-        VistA.write('Y')
-        VistA.wait('EDIT Option')
-        VistA.write('A')
-        VistA.wait('Add lines')
-    VistA.write((introText % (introTextSHA, datetime.date.today())) + '\r')
-    VistA.wait('EDIT Option')
-    VistA.write('')
-    VistA.wait('DOMAIN NAME')
-    VistA.write('')
-    VistA.wait('Select OPTION:')
-    VistA.write('')
-
-
-def configureNULLDevice(VistA):
-    # Point the NULL device at the POSIX path and disable sign-on.
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('DEVICE')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('$I\rSIGN-ON/SYSTEM DEVICE\r')
-    VistA.wait('NAME:')
-    VistA.write('NULL\r1')
-    VistA.wait('//')
-    VistA.write('/dev/null\rNO\r')
-    VistA.wait('Select OPTION')
-    VistA.write('')
-
-
-def configureConsoleDevice(VistA):
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('DEVICE')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('$I\rSIGN-ON/SYSTEM DEVICE\r')
-    VistA.wait('NAME:')
-    VistA.write('/dev/tty')
-    VistA.wait('//')
-    VistA.write('')
-    VistA.wait('SYSTEM DEVICE')
-    VistA.write('Y')
-    index = VistA.multiwait(['SYSTEM DEVICE', 'DEVICE NAME'])
-    if index == 0:
-        VistA.write('^')
-        VistA.wait('Select DEVICE')
-    VistA.write('')
-    VistA.wait('Select OPTION')
-    VistA.write('')
-
-
-def configureHFSDevice(VistA):
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('DEVICE')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('OPEN PARAMETERS')
-    VistA.wait_re('then edit field')
-    VistA.write('ASK PARAMETERS')
-    VistA.wait_re('then edit field')
-    VistA.write('SUBTYPE')
-    VistA.wait_re('then edit field')
-    VistA.write('')
-    VistA.wait('NAME:')
-    VistA.write('HFS')
-    VistA.wait('OPEN PARAMETERS')
-    VistA.write('"NWS"')
-    VistA.wait('ASK PARAMETERS')
-    VistA.write('1')
-    VistA.wait('SUBTYPE')
-    VistA.write('P-OTHER')
-    index = VistA.multiwait(['CHOOSE', 'DEVICE NAME'])
-    if index == 0:
-        VistA.write('1')
-        VistA.wait('Select DEVICE')
-    VistA.write('')
-    VistA.wait('Select OPTION')
-    VistA.write('')
-
-
-def setupVistADomain(VistA, site_name):
-    # Add the site to the DOMAIN file, christen it, and point Kernel System
-    # Parameters (#8989.3) + RPC Broker Site Parameters (#8994.1) at it.
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('DOMAIN\r')
-    VistA.wait('Select DOMAIN NAME')
-    VistA.write(site_name)
-    index = VistA.multiwait(["Are you adding", "NAME"])
-    if index == 0:
-        VistA.write('Y')
-    else:
-        VistA.write('')
-    VistA.wait('FLAGS')
-    VistA.write('^\r\r')
-    VistA.wait(PROMPT, 60)
-    VistA.write('D CHRISTEN^XMUDCHR')
-    VistA.wait('Are you sure you want to change the name of this facility?')
-    VistA.write('Yes')
-    VistA.wait('Select DOMAIN NAME')
-    VistA.write(site_name)
-    VistA.wait('PARENT')
-    VistA.write('')
-    VistA.wait('TIME ZONE')
-    VistA.write(time.strftime('%Z').replace(' Time', ''))
-    index = VistA.multiwait([VistA.prompt, 'TIME ZONE'])
-    if index == 1:
-        VistA.write('EST')
-        VistA.wait(PROMPT, 60)
-    VistA.IEN('DOMAIN', site_name)
-    VistA.wait(PROMPT, 60)
-    VistA.write('S $P(^XWB(8994.1,1,0),"^")=' + VistA.IENumber)
-    VistA.write('S $P(^XTV(8989.3,1,0),"^")=' + VistA.IENumber)
-    reindexFile(VistA, "8989.3")
-    reindexFile(VistA, "8994.1")
-
-
-def reindexFile(VistA, fileNo):
-    startFileman(VistA)
-    VistA.write('UTILITY')
-    VistA.wait('UTILITY OPTION')
-    VistA.write('RE')
-    VistA.wait_re('MODIFY WHAT FILE')
-    VistA.write(fileNo)
-    VistA.wait('PARTICULAR INDEX')
-    VistA.write('NO')
-    VistA.wait('EXISTING')
-    VistA.write('Y')
-    VistA.wait('RE-CROSS-REFERENCE')
-    VistA.write('Y')
-    index = VistA.multiwait(['UTILITY OPTION', 'Start Time'])
-    if index == 1:
-        VistA.write('')
-        VistA.wait('UTILITY OPTION')
-    VistA.write('')
-    VistA.wait('Select OPTION')
-    VistA.write('')
-
-
-def setupBoxVolPair(VistA, volume_set, site_name, tcp_port):
-    # Rename the TaskMan Site Parameters box-volume pair, then write the RPC
-    # Broker (XWB) LISTENER for the local domain on tcp_port (the RPC port,
-    # 9430). On IRIS this also queues the listener under the Listener Starter.
-    VistA.getenv(volume_set)
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('14.7')
-    VistA.wait('ALL//')
-    VistA.write('BOX-VOLUME')
-    VistA.wait_re('Then edit field')
-    VistA.write('Manager Startup Delay')
-    VistA.wait_re('Then edit field')
-    VistA.write('')
-    VistA.wait('Select TASKMAN SITE PARAMETERS BOX-VOLUME PAIR:')
-    VistA.write('`1')
-    VistA.wait('PAIR')
-    VistA.write(VistA.boxvol)
-    VistA.wait('Manager Startup')
-    VistA.write('1')
-    VistA.wait('Select TASKMAN SITE PARAMETERS BOX-VOLUME PAIR:')
-    VistA.write('')
-    VistA.wait('Select OPTION')
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('8994.1')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('LISTENER')
-    VistA.wait('SUB-FIELD')
-    VistA.write('')
-    VistA.wait('THEN EDIT FIELD')
-    VistA.write('')
-    VistA.wait('Select RPC BROKER SITE PARAMETERS DOMAIN NAME')
-    VistA.write(site_name)
-    VistA.wait('OK')
-    VistA.write('Y')
-    VistA.wait('BOX-VOLUME PAIR')
-    VistA.write(VistA.boxvol)
-    VistA.wait('OK')
-    VistA.write('Y')
-    index = VistA.multiwait(['BOX-VOLUME', 'Select PORT'])
-    if index == 0:
-        VistA.write('')
-        VistA.wait('Select PORT')
-    VistA.write(tcp_port + '\rY')
-    VistA.write('1\r1\r1\r')
-    VistA.wait('Select OPTION')
-    VistA.write('')
-
-
-def setupVolumeSet(VistA, site_name, volume_set, namespace=""):
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('14.5\r')
-    VistA.wait('Select VOLUME SET')
-    VistA.write('`1')
-    VistA.wait('VOLUME SET:')
-    VistA.write(volume_set + '\r\r\r\r\r')
-    VistA.wait('TASKMAN FILES UCI')
-    VistA.write(namespace + '\r\r\r\r\r\r')
-    VistA.wait('Select OPTION')
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE')
-    VistA.write('KERNEL SYSTEM PARAMETERS\rVOLUME SET\r\r')
-    VistA.wait('Select KERNEL SYSTEM PARAMETERS DOMAIN NAME:')
-    VistA.write(site_name + '\r')
-    VistA.wait('VOLUME SET')
-    VistA.write(volume_set)
-    index = VistA.multiwait(['Are you adding', 'VOLUME SET'])
-    if index == 0:
-        VistA.write('Y')
-    elif index == 1:
-        VistA.write('')
-    VistA.wait('MAX SIGNON ALLOWED')
-    VistA.write('500')
-    VistA.wait('LOG SYSTEM RT')
-    VistA.write('N')
-    VistA.wait('VOLUME SET')
-    VistA.write('\r\r')
-
-
-def scheduleOption(VistA, optionName, scheduleValue, scheduleTime="0030"):
-    # Schedule a TaskMan option (STARTUP, or a recurring frequency).
-    VistA.wait(PROMPT)
-    VistA.write('S DUZ=1 D ^XUP')
-    VistA.wait('Select OPTION NAME')
-    VistA.write('EVE\r1')
-    VistA.wait('Systems Manager Menu')
-    VistA.write('Taskman Management')
-    VistA.wait('Select Taskman Management')
-    VistA.write('SCHED')
-    VistA.wait('reschedule:')
-    VistA.write(optionName + '\rY')
-    VistA.wait('COMMAND:')
-    if scheduleValue == 'STARTUP':
-        VistA.write('\r^SPECIAL QUEUEING\rSTARTUP')
-    else:
-        VistA.write('^RESCHEDULING FREQUENCY\r%s' % scheduleValue)
-        VistA.write('^QUEUED TO RUN AT WHAT TIME\rT+1@%s' % scheduleTime)
-        VistA.write('^')
-    VistA.write('S\rE')
-    VistA.wait('reschedule:')
-    VistA.write('')
-    VistA.wait('Select Taskman Management')
-    VistA.write('')
-    VistA.wait('Systems Manager Menu')
-    VistA.write('')
-    VistA.wait('Do you really want to halt')
-    VistA.write('Y')
-
-
-def setupHL7Listener(VistA, hl7_port, link_name="VISTA-MLLP"):
-    """Configure an HL7 (HL package) MLLP listener on hl7_port -- spec §8 step 8.
-
-    UNVERIFIED / least-tested step: upstream OSEHRA only autostarts the Link
-    Manager (HL AUTOSTART LINK MANAGER), it does not create a listening logical
-    link. This drives the HL7 "LLP" edit dialog (option HL EDIT LOGICAL LINKS,
-    via the Link Edit/HLLP setup) to define a single-listener TCP link on the
-    published port. Confirm the prompt sequence against the HL7 package version
-    in the pinned FOIA VistA-M before relying on it; adjust as needed.
-    """
-    VistA.wait(PROMPT, 60)
-    VistA.write('S DUZ=1 D ^XUP')
-    VistA.wait('Select OPTION NAME')
-    VistA.write('HL EDIT LOGICAL LINKS\r')
-    VistA.wait('Select HL LOGICAL LINK NODE:')
-    VistA.write(link_name)
-    index = VistA.multiwait(['Are you adding', 'NODE:'])
-    if index == 0:
-        VistA.write('Y')
-    VistA.wait('LLP TYPE:')
-    VistA.write('TCP')
-    # ScreenMan LLP parameters: SINGLE LISTENER on hl7_port.
-    VistA.wait('TCP/IP SERVICE TYPE:')
-    VistA.write('SINGLE LISTENER')
-    VistA.wait('TCP/IP PORT')
-    VistA.write(str(hl7_port))
-    VistA.write('\r^\rS\rE')
-    VistA.wait('Select OPTION NAME')
-    VistA.write('')
-    VistA.wait('halt')
-    VistA.write('Y')
-
-
-def startTaskMan(VistA):
-    # Cold-boot TaskMan; this fires the scheduled STARTUP options (XWB
-    # listener, HL7 Link Manager) on every boot.
-    VistA.wait(PROMPT)
-    VistA.write('DO ^ZTMB')
-
-
-def addSystemManager(VistA):
-    VistA.wait(PROMPT, 60)
-    VistA.write('S DUZ=1 D ^XUP')
-    VistA.wait('Select OPTION NAME')
-    VistA.write('EVE\r1')
-    VistA.wait('Systems Manager Menu')
-    VistA.write('USER MANAGEMENT')
-    VistA.wait('User Management')
-    VistA.write('ADD')
-    VistA.wait('Enter NEW PERSON')
-    VistA.write('MANAGER,SYSTEM')
-    index = VistA.multiwait(['Are you adding', 'Want to reactivate'])
-    if index == 0:
-        VistA.write('Y')
-        VistA.wait('INITIAL:')
-        VistA.write('SM')
-        VistA.wait('SSN:')
-        VistA.write('000000001')
-        VistA.wait('SEX:')
-        VistA.write('M')
-        VistA.wait('NPI')
-        VistA.write('')
-        VistA.wait('NAME COMPONENTS')
-    VistA.write('\r\r\r\r\r^PRIMARY MENU OPTION\rEVE\r1\r^Want to edit ACCESS CODE\rY\rSM1234\rSM1234\r^Want to edit VERIFY CODE\rY\rSM1234!!\rSM1234!!\r^SECONDARY MENU OPTIONS\rOR PARAM COORDINATOR MENU\rY\r\r\r\rTIU IRM MAINTENANCE MENU\rY\r\r\r\rXPAR MENU TOOLS\rY\r\r\r\rDG REGISTER PATIENT\rY\r\r\r\r^MULTIPLE SIGN-ON\r1\r1\r99\r^SERVICE/SECTION\rIRM\rS\rE')
-    VistA.wait('User Account Access Letter')
-    VistA.write('NO')
-    VistA.wait('wish to allocate security keys?')
-    VistA.write('Y')
-    VistA.wait('Allocate key')
-    VistA.write('XUMGR')
-    VistA.wait('Another key')
-    VistA.write('XUPROG\r1')
-    VistA.wait('Another key')
-    VistA.write('XUPROGMODE')
-    VistA.wait('Another key')
-    VistA.write('SD SUPERVISOR')
-    VistA.wait('Another key')
-    VistA.write('SDWL PARAMETER')
-    VistA.wait('Another key')
-    VistA.write('SDWL MENU')
-    VistA.wait('Another key')
-    VistA.write('')
-    VistA.wait('Another holder')
-    VistA.write('')
-    VistA.wait('YES//')
-    VistA.write('')
-    VistA.wait('mail groups?')
-    VistA.write('\r')
-    VistA.wait('Systems Manager Menu')
-    VistA.write('\rY')
-    VistA.wait(PROMPT, 60)
-    VistA.IEN('NEW PERSON', 'MANAGER,SYSTEM')
-    VistA.wait(PROMPT, 60)
-    VistA.write('S DUZ=' + VistA.IENumber + ' S $P(^VA(200,DUZ,0),"^",4)="@"')
-
-
-def addInstitution(VistA, inst_name, station_number):
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE:')
-    VistA.write('4')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('STATION NUMBER')
-    VistA.wait('THEN EDIT FIELD')
-    VistA.write('')
-    VistA.wait('Select INSTITUTION NAME:')
-    VistA.write(inst_name)
-    index = VistA.multiwait(['Are you adding', 'STATION NUMBER'])
-    if index == 0:
-        VistA.write('Y')
-        VistA.wait('STATION NUMBER:')
-    VistA.write(station_number)
-    VistA.wait('Select INSTITUTION NAME:')
-    VistA.write('')
-    VistA.wait('Select OPTION:')
-    VistA.write('')
-
-
-def addDivision(VistA, div_name, facility_number, station_number):
-    startFileman(VistA)
-    VistA.write('1')
-    VistA.wait_re('INPUT TO WHAT FILE:')
-    VistA.write('40.8')
-    VistA.wait('EDIT WHICH FIELD')
-    VistA.write('FACILITY NUMBER')
-    VistA.wait('THEN EDIT FIELD')
-    VistA.write('INSTITUTION FILE POINTER')
-    VistA.wait('THEN EDIT FIELD')
-    VistA.write('')
-    VistA.wait('DIVISION NAME')
-    VistA.write(div_name)
-    VistA.wait('Are you adding')
-    VistA.write('Y')
-    VistA.wait('MEDICAL CENTER DIVISION NUM:')
-    VistA.write('')
-    VistA.wait('FACILITY NUMBER')
-    VistA.write(facility_number)
-    VistA.write('')
-    VistA.wait('INSTITUTION FILE POINTER')
-    VistA.write(station_number)
-    VistA.wait('DIVISION NAME')
-    VistA.write('')
-    VistA.wait('Select OPTION')
-    VistA.write('')
-
-
-def addtoMASParameter(VistA, institution, medical_center):
-    VistA.wait(PROMPT)
-    VistA.write('D ^XUP')
-    VistA.write('1')
-    VistA.wait('Select OPTION NAME')
-    VistA.write('ADT SYSTEM')
-    VistA.wait('ADT System Definition Menu')
-    VistA.write('MAS Parameter Entry')
-    VistA.wait('Enter 1-3 to EDIT, or RETURN to QUIT')
-    VistA.write('1')
-    VistA.wait('MEDICAL CENTER NAME')
-    VistA.write(medical_center)
-    VistA.wait('AFFILIATED')
-    VistA.write('NO')
-    VistA.wait('MULTIDIVISION MED CENTER')
-    VistA.write('NO')
-    VistA.wait('NURSING HOME WARDS')
-    VistA.write('')
-    VistA.wait('DOMICILIARY WARDS')
-    VistA.write('')
-    VistA.wait('SYSTEM TIMEOUT')
-    VistA.write('30')
-    VistA.wait('AUTOMATIC PTF MESSAGES')
-    VistA.write('')
-    VistA.wait('PRINT PTF MESSAGES')
-    VistA.write('')
-    VistA.wait('DEFAULT PTF MESSAGE PRINTER')
-    VistA.write('')
-    VistA.wait('SHOW STATUS SCREEN')
-    VistA.write('YES')
-    VistA.wait('USE HIGH INTENSITY ON SCREENS')
-    VistA.write('^^')
-    VistA.wait('Enter 1-3 to EDIT, or RETURN to QUIT')
-    VistA.write('2')
-    VistA.wait('DAYS TO UPDATE MEDICAID')
-    VistA.write('365')
-    VistA.wait('DAYS TO MAINTAIN G&L CORR')
-    VistA.write('30')
-    VistA.wait('TIME FOR LATE DISPOSITION')
-    VistA.write('30')
-    VistA.wait('SUPPLEMENTAL 10/10')
-    VistA.write('0')
-    VistA.wait(':')
-    VistA.write('^ASK DEVICE IN REGISTRATION')
-    VistA.wait('ASK DEVICE IN REGISTRATION')
-    VistA.write('YES')
-    VistA.wait('DAYS TO MAINTAIN SENSITIVITY')
-    VistA.write('30')
-    VistA.wait(':')
-    VistA.write('^^')
-    VistA.wait('Enter 1-3 to EDIT, or RETURN to QUIT')
-    VistA.write('3')
-    VistA.wait(':')
-    VistA.write('^INSTITUTION FILE POINTER')
-    VistA.wait('INSTITUTION FILE POINTER')
-    VistA.write(institution)
-    VistA.wait(':')
-    VistA.write('^^')
-    VistA.wait('Enter 1-3 to EDIT, or RETURN to QUIT')
-    VistA.write('')
-    VistA.wait('ADT System Definition Menu')
-    VistA.write('')
-    VistA.wait('YES//')
-    VistA.write('')
-    VistA.wait(PROMPT)
     VistA.write('')
 
 
@@ -829,11 +194,6 @@ def registerVitalsCPRS(VistA):
     VistA.write('S GMVGUI="VITALS.EXE:5.0.38.3"')
     VistA.wait(PROMPT, 60)
     VistA.write('D EN^XPAR("SYS","GMV GUI VERSION",GMVGUI,1)')
-
-
-def removeCAPRILogin(VistA):
-    VistA.wait(PROMPT, 60)
-    VistA.write('D EN^XPAR("SYS","XU522",1,"Y")')
 
 
 def _addUser(VistA, name, init, SSN, sex, AC, VC1, screenman, keys, first=False):
@@ -1290,3 +650,156 @@ def addPatient(VistA, patients):
         VistA.write('W !,"PATIENT ",$S(+$G(DGIEN(1)):"ADDED DFN="_DGIEN(1),'
                     '1:"FAILED: "_$G(DGERR("DIERR",1,"TEXT",1)))," (' + name + ')",!')
         VistA.wait(PROMPT)
+
+
+class Clinic(object):
+    """A scheduling clinic built via the SDBUILD option (from ClinicSetup.py.in)."""
+
+    def __init__(self, cname, cabr, cstarttime, ctime, cdate, cslots, cservice,
+                 ctype, cxray, cprofiles, ccico, cproviders, cdiagnosisICD10,
+                 cdiagnosis, cvarlen, cstopcode):
+        self.cname = cname
+        self.cabr = cabr
+        self.cstarttime = cstarttime
+        self.ctime = ctime
+        self.cdate = cdate
+        self.cslots = cslots
+        self.cservice = cservice
+        self.ctype = ctype
+        self.cxray = cxray
+        self.cprofiles = cprofiles
+        self.ccico = ccico
+        self.cproviders = cproviders
+        self.cdiagnosis = cdiagnosis
+        self.cdiagnosisICD10 = cdiagnosisICD10
+        self.cvarlen = cvarlen
+        self.cstopcode = cstopcode
+
+    def setup(self, VistA):
+        VistA.write('W $$NOSEND^VAFHUTL')
+        VistA.wait('0')
+        VistA.write('S DUZ=1 D ^XUP')
+        VistA.wait('OPTION NAME:')
+        VistA.write('SDBUILD')
+        VistA.wait('CLINIC NAME:')
+        VistA.write(self.cname)
+        VistA.wait('LOCATION?')
+        VistA.write('Yes')
+        VistA.wait('NAME:')
+        VistA.write('')
+        VistA.wait('ABBREVIATION')
+        VistA.write(self.cabr)
+        while True:
+            index = VistA.multiwait(['SERVICE', 'CLINIC MEETS', 'PATIENT FRIENDLY NAME',
+                                     'ALLOW DIRECT PATIENT', 'DISPLAY CLIN APPT'])
+            if index == 0:
+                break
+            if index == 2:
+                VistA.write('')
+            else:
+                VistA.write('Y')
+        VistA.write(self.cservice)
+        VistA.wait('CLINIC?')
+        VistA.write('N')
+        VistA.wait('NUMBER:')
+        VistA.write(self.cstopcode)
+        VistA.wait('TYPE:')
+        VistA.write(self.ctype)
+        VistA.wait('MEDS?')
+        VistA.write('')
+        VistA.wait('TELEPHONE')
+        VistA.write('')
+        VistA.wait('FILMS?')
+        VistA.write(self.cxray)
+        VistA.wait('PROFILES?')
+        VistA.write(self.cprofiles)
+        for _ in range(0, 4):
+            VistA.wait('LETTER:')
+            VistA.write('')
+        VistA.wait('TIME:')
+        VistA.write(self.ccico)
+        for provider in self.cproviders:
+            VistA.wait('Select PROVIDER')
+            VistA.write(provider)
+            VistA.wait('new PROVIDER')
+            VistA.write('Yes')
+            VistA.wait('DEFAULT PROVIDER')
+            VistA.write('')
+        VistA.wait('PROVIDER')
+        VistA.write('')
+        VistA.wait('PRACTITIONER?')
+        VistA.write('')
+        for diag in self.cdiagnosis:
+            VistA.wait('Select DIAGNOSIS')
+            VistA.write(diag)
+            index = VistA.multiwait(['\\?\\?', 'OK'])
+            if index == 1:
+                VistA.write('')
+                VistA.wait('new DIAGNOSIS')
+                VistA.write('Yes')
+                VistA.wait('DEFAULT DIAGNOSIS')
+                VistA.write('')
+            else:
+                for diag10 in self.cdiagnosisICD10:
+                    VistA.wait('Select DIAGNOSIS')
+                    VistA.write(diag)
+                    index = VistA.multiwait(['\\?\\?', 'OK'])
+                    if index == 1:
+                        VistA.write('')
+                        VistA.wait('new DIAGNOSIS')
+                        VistA.write('Yes')
+                        VistA.wait('DEFAULT DIAGNOSIS')
+                        VistA.write('')
+                break
+        VistA.wait('Select DIAGNOSIS')
+        VistA.write('')
+        VistA.wait('CHK OUT:')
+        VistA.write('')
+        index = VistA.multiwait(['ALLOWABLE CONSECUTIVE NO-SHOWS', 'WORKLOAD VALIDATION'])
+        if index == 1:
+            VistA.write('')
+            VistA.wait('ALLOWABLE CONSECUTIVE NO-SHOWS')
+        VistA.write('10')
+        VistA.wait('BOOKING')
+        VistA.write('365')
+        VistA.wait('BEGINS:')
+        VistA.write(self.cstarttime)
+        VistA.wait('REBOOK:')
+        VistA.write('')
+        VistA.wait('REBOOK:')
+        VistA.write('365')
+        VistA.wait('HOLIDAYS')
+        VistA.write('Yes')
+        VistA.wait('CODE:')
+        VistA.write('303')
+        VistA.wait('CLINIC')
+        VistA.write('')
+        VistA.wait('LOCATION')
+        VistA.write('')
+        VistA.wait('CLINIC')
+        VistA.write('')
+        VistA.wait('MAXIMUM')
+        VistA.write('4')
+        VistA.wait('INSTRUCTIONS')
+        VistA.write('')
+        VistA.wait('LENGTH')
+        VistA.write('30')
+        VistA.wait('LENGTH')
+        VistA.write(self.cvarlen)
+        VistA.wait('HOUR')
+        VistA.write('2')
+        for day in range(0, 7):
+            VistA.wait('DATE:')
+            VistA.write(self.cdate[day])
+            VistA.wait('TIME:')
+            VistA.write(self.ctime)
+            VistA.wait('SLOTS:')
+            VistA.write(self.cslots)
+            VistA.wait('TIME:')
+            VistA.write('')
+            VistA.wait('INDEFINITELY')
+            VistA.write('Yes')
+        VistA.wait('DATE:')
+        VistA.write('')
+        VistA.wait('NAME:')
+        VistA.write('')
