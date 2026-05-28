@@ -6,6 +6,16 @@ place — **save = compile on the server**. No export, no import, no checkout.
 
 Three one-time steps, then you're editing.
 
+## Contents
+
+- [1. Have the container running](#1-have-the-container-running)
+- [2. Install the ObjectScript extension](#2-install-the-objectscript-extension)
+- [3. Open the workspace](#3-open-the-workspace)
+- [Edit a routine](#edit-a-routine)
+- [Run something](#run-something)
+- [Close the workspace when done](#close-the-workspace-when-done)
+- [Troubleshooting](#troubleshooting)
+
 ## 1. Have the container running
 
 The web port **52773** (the REST API the extension talks to) must be published — the
@@ -78,6 +88,36 @@ results and errors show in the **ObjectScript** output channel.
 To test code, open an IRIS terminal in the `VISTA` namespace: `Cmd+Shift+P` →
 **ObjectScript: Open WebSocket Terminal**. (No extension, or it won't connect?
 `podman exec -it vista iris session IRIS -U VISTA` gives you the same prompt from any shell.)
+
+## Close the workspace when done
+
+Your edits already live in the container (save = compile on the server), so there's nothing
+to commit or export — just close up:
+
+1. **Go back to your own project.** A VS Code window shows one workspace at a time, so
+   "close" the VistA workspace by *opening yours over it*: **File → Open Recent** (`Ctrl+R`
+   / `Cmd+R`) and pick your usual folder, or **File → Open Folder…**. Don't use **Close
+   Workspace** — it just empties the window (it can look like VS Code disappeared) and
+   doesn't take you back to anything.
+
+   > Want to keep both open side by side? Open the VistA workspace in its own window next
+   > time (`code -n vista-iris.code-workspace`, or **File → New Window** then open it).
+   > Then closing that window leaves your local one untouched.
+
+   Either way this only disconnects the editor — it doesn't touch the container.
+2. **Leave the container running** if you'll be back soon — it holds your compiled routines
+   and any terminal session state.
+3. **Stop the container** when you're truly done to free the ports and memory:
+
+   ```bash
+   podman stop vista
+   ```
+
+   Restart later with `podman start vista` (or the readme's `podman run` if you removed it),
+   then reopen the workspace — your saved routines are still there.
+
+> The container keeps its data between `stop`/`start`. Only `podman rm vista` (or removing
+> the image) discards the namespace, so your edits survive an ordinary stop.
 
 ## Troubleshooting
 
