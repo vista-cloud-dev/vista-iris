@@ -128,6 +128,12 @@ COPY --chown=irisowner:irisowner scripts/vista/*.py  /opt/vista/scripts/vista/
 COPY --from=builder /usr/irissys/iris.cpf  /usr/irissys/iris.cpf
 COPY --from=builder /usr/irissys/mgr       /usr/irissys/mgr
 
+# WORKDIR /opt/vista was created root-owned (USER root above), but the inherited
+# IRIS entrypoint runs as irisowner and writes iris-main.log to its CWD -- so the
+# runtime working dir must be writable by irisowner, else the instance aborts on
+# boot ("Unable to find/open file iris-main.log in current directory /opt/vista").
+RUN chown irisowner:irisowner /opt/vista
+
 USER irisowner
 
 # The base image already exposes 1972 (superserver / RPC / xDBC) and 52773
