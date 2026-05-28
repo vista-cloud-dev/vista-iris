@@ -17,12 +17,18 @@
 #                                    # prior vista-iris instance + dangling
 #                                    # images/build cache (-> fresh install)
 #
-# Env overrides: ENGINE (podman|docker, default podman), MIN_DISK_GB (default 50,
-#   the headroom a from-scratch build needs), IMAGE (default vista-iris),
-#   CONTAINER (default vista-iris).
+# Env overrides: ENGINE (podman|docker, default: auto-detect, podman preferred),
+#   MIN_DISK_GB (default 40, the headroom a from-scratch build needs),
+#   IMAGE (default vista-iris), CONTAINER (default vista-iris).
 set -u
 
-ENGINE="${ENGINE:-podman}"
+# Honor an explicit ENGINE=...; else auto-detect (podman preferred, then docker)
+# so this agrees with the Makefile and a direct run works on a Docker-only host.
+ENGINE="${ENGINE:-}"
+if [ -z "$ENGINE" ]; then
+  for e in podman docker; do command -v "$e" >/dev/null 2>&1 && { ENGINE="$e"; break; }; done
+  ENGINE="${ENGINE:-podman}"
+fi
 IMAGE="${IMAGE:-vista-iris}"
 CONTAINER="${CONTAINER:-vista-iris}"
 MIN_DISK_GB="${MIN_DISK_GB:-40}"
@@ -95,6 +101,9 @@ hdr "disk space (need >= ${MIN_DISK_GB} GB for a from-scratch build)"
 avail=""
 if [ "$ENGINE" = podman ]; then
   avail=$(podman machine ssh 'df -BG --output=avail /var 2>/dev/null | tail -1' 2>/dev/null | tr -dc '0-9')
+elif [ "$ENGINE" = docker ]; then
+  droot=$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
+  avail=$(df -BG --output=avail "$droot" 2>/dev/null | tail -1 | tr -dc '0-9')
 fi
 if [ -z "$avail" ]; then
   warn "could not auto-detect engine free disk; ensure >= ${MIN_DISK_GB} GB (running a prebuilt image needs less)"

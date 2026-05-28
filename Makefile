@@ -82,10 +82,10 @@ sources: ## Ensure VistA-M routines present in $(VISTA_M_DIR)/ (reuse if already
 	fi
 
 preflight: ## Pre-install check: engine, disk, ports, conflicts, prior installs
-	@bash scripts/preflight.sh
+	@ENGINE="$(ENGINE)" bash scripts/preflight.sh
 
 fresh: ## Preflight + CLEAN: stop other containers, remove prior vista-iris (fresh install)
-	@bash scripts/preflight.sh --clean
+	@ENGINE="$(ENGINE)" bash scripts/preflight.sh --clean
 
 build: preflight sources ## Build the OCI image (Strategy A) on IRIS_TAG=$(IRIS_TAG)
 	$(COMPOSE) build
