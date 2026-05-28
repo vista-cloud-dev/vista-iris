@@ -78,10 +78,15 @@ COPY --chown=irisowner:irisowner scripts/startup.script  /opt/vista/scripts/star
 COPY --chown=irisowner:irisowner \
      scripts/vista/steps_fileman.py scripts/vista/steps_osinit.py \
      scripts/vista/steps_postinstall.py scripts/vista/steps_sampledata.py \
+     scripts/vista/waitready.py \
      scripts/vista/phase6_osinit.py scripts/vista/phase7_postinstall.py \
      scripts/vista/phase8_sampledata.py \
      /opt/vista/scripts/vista/
+# `waitready` outlasts the cold-mount race: `iris start` can return before the
+# database is writable, and osinit's first FileMan write would then hit <PROTECT>
+# and time out the install (observed in CI). Gate on a write probe first.
 RUN iris start IRIS quietly \
+ && python3 -m vista waitready \
  && python3 -m vista osinit \
  && python3 -m vista postinstall \
  && python3 -m vista sampledata \

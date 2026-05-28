@@ -20,6 +20,9 @@ import sys
 PHASES = {
     "license": "phase3_license",
     "import": "phase5_import",
+    # readiness gate (not a numbered blueprint phase): run after `iris start`,
+    # before the interactive phases, to outlast a not-yet-writable cold mount.
+    "waitready": "waitready",
     "osinit": "phase6_osinit",
     "postinstall": "phase7_postinstall",
     "sampledata": "phase8_sampledata",

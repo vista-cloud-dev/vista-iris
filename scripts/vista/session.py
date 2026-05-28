@@ -24,7 +24,7 @@ import time
 import pexpect
 
 from . import config
-from .helper import ConnectToMUMPS
+from .helper import ConnectToMUMPS, InstallError, PROMPT
 
 
 def connect(logname):
@@ -66,6 +66,37 @@ def connect_with_retry(logname, attempts=12, pause=15):
                              % (attempt + 1, logname, exc))
             time.sleep(pause)
     raise last
+
+
+def wait_until_writable(v, attempts=30, pause=2, timeout=30):
+    """Block until the namespace's default database accepts a global write.
+
+    ``iris start ... quietly`` can return while the database is still finishing
+    WIJ/journal recovery -- mounted *read-only* for a beat. A session then
+    reaches the programmer prompt fine, but the first FileMan write hits
+    ``<PROTECT>`` and the interactive install dies waiting for a prompt that
+    never comes (observed in CI: Phase 6 osinit, pexpect TIMEOUT on
+    'INPUT TO WHAT FILE'). Probe with a trivial set/kill of a scratch global
+    under try/catch -- the catch swallows the transient ``<PROTECT>`` so the
+    session stays usable -- retrying until the write succeeds.
+
+    The OK/WAIT tokens are split in the source (``"PROBE","_OK"``) so the
+    command's pty echo can't false-match the expect; only the *executed* output
+    prints them contiguously.
+    """
+    probe = ('try { set ^ZZWRITABLE=1 kill ^ZZWRITABLE write "PROBE","_OK",! } '
+             'catch ex { write "PROBE","_WAIT ",ex.Name,! }')
+    for attempt in range(attempts):
+        v.write(probe)
+        idx = v.multiwait(["PROBE_OK", "PROBE_WAIT"], timeout)
+        v.wait(PROMPT)
+        if idx == 0:
+            return
+        sys.stderr.write("waitready: database not writable yet (attempt %d/%d)\n"
+                         % (attempt + 1, attempts))
+        time.sleep(pause)
+    raise InstallError("VISTA database not writable after %d attempts (~%ds)"
+                       % (attempts, attempts * pause))
 
 
 def release(v):
