@@ -8,7 +8,16 @@
 # The `ci` target IS the CI/CD chain, so local and CI behavior are identical.
 # =====================================================================
 
-ENGINE    ?= podman
+# Container engine (§3: Podman-first). Honor an explicit ENGINE=... (env or CLI);
+# otherwise auto-pick whatever is installed -- podman if present, else docker -- so
+# a new developer never has to know which they have, nor pass ENGINE=docker by hand.
+# Fail loud if neither is on PATH.
+ifeq ($(origin ENGINE),undefined)
+ENGINE := $(shell for e in podman docker; do command -v $$e >/dev/null 2>&1 && { echo $$e; break; }; done)
+endif
+ifeq ($(strip $(ENGINE)),)
+$(error No container engine found on PATH. Install Podman (preferred) or Docker, or pass ENGINE=<engine>)
+endif
 COMPOSE    = $(ENGINE) compose
 IMAGE     ?= vista-iris:dev
 CONTAINER ?= vista-iris
@@ -91,7 +100,11 @@ down: ## Stop and remove the instance
 # `run` uses plain `$(ENGINE) run`, NOT compose: `podman compose` can delegate to
 # podman-compose (a Python tool), which would reintroduce a host runtime dep.
 pull: ## Pull/refresh the prebuilt published image from GHCR
-	$(ENGINE) pull $(PUBLISHED_IMAGE):$(PUBLISHED_TAG)
+	@$(ENGINE) pull $(PUBLISHED_IMAGE):$(PUBLISHED_TAG) || { \
+	  echo ">> pull failed. A 'denied' here means the image isn't published yet, or its"; \
+	  echo "   GHCR package isn't public. Either publish it (run .github/workflows/publish.yml"; \
+	  echo "   + set the package public, see readme 'Contributing'), or build locally: make build"; \
+	  exit 1; }
 
 run: preflight ## Run the prebuilt image (toggles: ENABLE_RPC/ENABLE_TASKMAN/ENABLE_HL7)
 	$(ENGINE) run -d --name $(CONTAINER) \

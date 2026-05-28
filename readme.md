@@ -77,6 +77,9 @@ make run     # run it (ephemeral) — equivalent to the podman run above
 make stop    # stop & remove the container
 ```
 
+The engine is auto-detected — `make` uses Podman if installed, otherwise Docker, so no
+`ENGINE=` flag is needed (override with `make run ENGINE=docker` if you have both).
+
 `make run` uses plain `podman run`, **not** Compose: `podman compose` can delegate to
 `podman-compose` (a Python tool), reintroducing a host runtime dependency. The one-liner
 has none.
