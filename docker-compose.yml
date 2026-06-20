@@ -37,9 +37,10 @@ services:
       # RPC Broker (XWB) on VISTA_RPC_PORT -- CPRS / RPC clients. Default ON (1 unit).
       VISTA_ENABLE_RPC: ${VISTA_ENABLE_RPC:-1}
       VISTA_RPC_PORT: ${VISTA_RPC_PORT:-9430}
-      # TaskMan (^ZTMB + its scheduled STARTUP jobs). Spawns several persistent
-      # processes that can exhaust IRIS Community's ~8-unit license. Default OFF.
-      VISTA_ENABLE_TASKMAN: ${VISTA_ENABLE_TASKMAN:-0}
+      # TaskMan (^ZTMB). The %ZSTART hook's TMTUNE first un-queues the #19.2 STARTUP
+      # auto-listeners + caps #14.7 to the license, so TaskMan cold-starts within the
+      # ~8-unit Community budget (~2 LU; validated 2026-06-20). Default ON.
+      VISTA_ENABLE_TASKMAN: ${VISTA_ENABLE_TASKMAN:-1}
       # HL7 Link Manager (needs an HL LOGICAL LINK #870 listener; deferred). Default OFF.
       VISTA_ENABLE_HL7: ${VISTA_ENABLE_HL7:-0}
     # IRIS Community Edition is core-capped (~20). On hosts with more cores,

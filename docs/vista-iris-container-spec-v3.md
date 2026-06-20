@@ -150,7 +150,7 @@ gives provenance and, where relevant, the code that confirms it.
 | Layering | **Cached import layer + separately iterated site-build layer** | Iterating the site build must not re-import ~GBs of routines/globals. | log §4 · `Dockerfile` |
 | Patient creation | **Programmatic `UPDATE^DIE`** into #2, not the registration menu | The menu hangs on "Searching the MVI…" (`MPIFXMLP`) in a standalone instance. | log D10/E9 · `setup.py:addPatient` |
 | RPC start mechanism | **IRIS `%ZSTART` hook** jobs `ZISTCP^XWBTCPM1` — **not** TaskMan | TaskMan cold-start exhausts the 8-unit Community license. | log D11/D12/E16 · `startup.script` |
-| TaskMan | **Off by default** | Measured to consume all 8 license units (~37 processes). | log D13/E16 · `02_postinstall.py`, `startup.script` |
+| TaskMan | **On by default** (since 2026-06-20) | `TMTUNE` un-queues the #19.2 STARTUP listeners + caps #14.7, so cold-start fits in ~2 LU. Uncapped/un-pruned it consumed all 8 (~37 procs). | log D13/E16 · `startup.script` |
 | Build hygiene | **Journal purge after each clean `iris stop`; commit a stopped instance** | Import journals (GBs) overran the build disk; a committed *running* IRIS isn't restartable. | log D14/D16/E11/E15 · `Dockerfile` |
 | Distribution | **Multi-arch image published to GHCR**, verified before `:latest` moves | A new developer needs only Podman — no submodule, build, or Python. | `publish.yml`, `docker-compose.run.yml`, `Makefile` |
 
@@ -175,7 +175,7 @@ opt-in).
 │   FOIA VistA codebase (Kernel/FileMan/RPC/HL/…)                          │
 │   %ZSTART boot hook ─ starts only TOGGLED-ON services:                  │
 │     • RPC Broker (XWB)  JOB ZISTCP^XWBTCPM1  ── TCP 9430   (default ON)  │
-│     • TaskMan (^ZTMB)                          (default OFF, license)    │
+│     • TaskMan (^ZTMB)              (default ON; TMTUNE prune+cap → ~2 LU) │
 │     • HL7 Link Manager                         (default OFF; #870 TODO)  │
 │   IRIS FHIR server (Health edition)            ── via 52773              │
 │                                                                         │
@@ -361,11 +361,12 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
     scheduled STARTUP job (~37 persistent processes) and exhausts the 8-unit license — which
     starved Phase 8 with `LICENSE LIMIT EXCEEDED` (E16). The scheduled options above remain as
     *dormant* config; the RPC Broker is started at boot by `%ZSTART` (Phase 9), one process.
-    (The `%ZSTART` hook's `TMTUNE` caps #14.7 JOB LIMIT when TaskMan is enabled, but
-    **measured 2026-06-20 that cap alone does NOT prevent this exhaustion** — the STARTUP
-    options `JOB` persistent listeners outside JOB LIMIT. Enabling `VISTA_ENABLE_TASKMAN=1`
-    safely additionally requires pruning those scheduled STARTUP options; see
-    [Phase 9](#phase-9--service-startup-hook--toggles). The flag stays `0`.)
+    (Cold-starting TaskMan at *runtime* is now safe because the `%ZSTART` hook's `TMTUNE`
+    first **un-queues those STARTUP options** + caps #14.7 — so `VISTA_ENABLE_TASKMAN` now
+    defaults to `1` and TaskMan cold-starts within ~2 LU; see
+    [Phase 9](#phase-9--service-startup-hook--toggles). The rule here is specifically about
+    **Phase 7 of the build**, where `^ZTMB` must still not be cold-started — the install
+    runs as `%SYS`-level sessions with no TMTUNE prune in effect yet.)
   - **Release every menu session cleanly, one at a time.** A session that enters a menu must
     escape to the programmer prompt → `halt` → wait for EOF so IRIS deregisters its license
     slot synchronously; force-closing leaves the slot held and the next connect hits
@@ -410,27 +411,30 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
   RPC Broker = `JOB ZISTCP^XWBTCPM1(<port>)` (one process); TaskMan = `D TMTUNE JOB ^ZTMB`
   (gated off); HL7 = best-effort `STARTALL^HLCSLM` (gated off). This is the runtime
   license-management surface.
-- **License-aware TaskMan cap (`TMTUNE`).** When `VISTA_ENABLE_TASKMAN` is turned on, the hook
-  runs `TMTUNE` **before** `JOB ^ZTMB`: it reads `$SYSTEM.License.KeyLicenseUnits()` and sets
-  TASKMAN SITE PARAMETERS (#14.7) **TASKMAN JOB LIMIT** (fld 6) = `clamp(2, LU−4, 24)`,
-  **SUBMANAGER RETENTION TIME** (fld 5) = 60, and **MIN SUBMANAGER CNT** (fld 11) = 0 via
-  `FILE^DIE`. On a non-Community (large) license it clamps to the Kernel default 24; if the
-  license can't be read it leaves #14.7 untouched (fail-safe). This bounds TaskMan's
-  **submanager pool** (so a flood of queued tasks can't spawn 24 submanagers).
-- **⚠ MEASURED (2026-06-20): the cap is NOT sufficient to enable TaskMan on the 8-unit
-  license.** Live test on this image (prebuilt, IRIS-for-Health base): TaskMan **OFF** = 2 LU
-  used / healthy; TaskMan **ON, uncapped** = `License limit exceeded`, instance locked;
-  TaskMan **ON with the TMTUNE cap (JOB LIMIT=4)** = **still** `License limit exceeded`,
-  locked. Root cause: cold-start fires the scheduled **STARTUP options** (RPC listener, HL7
-  Link Manager, …), each of which `JOB`s its **own persistent listener** *outside* TaskMan's
-  JOB LIMIT governance — so they exhaust the budget regardless of the submanager cap.
-  Therefore **`VISTA_ENABLE_TASKMAN` stays `0`**; enabling it within 8 LU additionally
-  requires **pruning the scheduled STARTUP options** in OPTION SCHEDULING (#19.2) so the
-  cold-start launches few/no persistent listeners. `TMTUNE` remains in place as a sound
-  submanager-pool cap but is necessary-not-sufficient.
-- **Prevents:** TaskMan license exhaustion (services off by default). The `TMTUNE` cap bounds
-  the submanager pool but does **not** by itself make TaskMan safe to enable (see ⚠ above).
-  Also prevents a failed routine import (E14).
+- **License-safe TaskMan (`TMTUNE`) — default ON.** When `VISTA_ENABLE_TASKMAN` is on
+  (now the default), the hook runs `TMTUNE` **before** `JOB ^ZTMB`. `TMTUNE` does two things:
+  1. **Un-queues every #19.2 SPECIAL QUEUEING=STARTUP option.** Each STARTUP option (`XWB
+     LISTENER STARTER`, `HL AUTOSTART LINK MANAGER`, `HL TASK RESTART`, `XOBV LISTENER
+     STARTUP`, `XMRONT`) `JOB`s its **own persistent listener** *outside* TaskMan's JOB LIMIT
+     — that is what exhausts the license on cold-start. RPC is already started directly by
+     `%ZSTART` (not via TaskMan); HL7 / VistALink / MailMan are deferred — so none are needed.
+  2. **Caps #14.7** JOB LIMIT (fld 6) = `clamp(2, LU−4, 24)`, RETENTION (fld 5) = 60, MIN
+     SUBMGR (fld 11) = 0 (bounds the submanager pool). Clamps to the Kernel default 24 on a
+     large license; leaves #14.7 untouched if the license can't be read (fail-safe).
+- **Why both are needed (MEASURED 2026-06-20, prebuilt image, IRIS-for-Health, 8 LU):**
+  TaskMan **OFF** = 2 LU / healthy; **ON, uncapped** = `License limit exceeded` / locked;
+  **ON, capped only** = *still* `License limit exceeded` / locked (the cap governs submanagers,
+  not the STARTUP listeners); **ON, STARTUP-pruned + capped** = **2 LU / healthy, TaskMan
+  running, log clean** (verified on two fresh instances). So the prune is the load-bearing fix;
+  the cap is the complementary submanager bound.
+- **⚠ The published image must be rebuilt + republished for this to take effect.** The prune
+  lives in the built `%ZSTART` routine; the *currently published* `:latest` predates it.
+  `make run`/`make pull` on the old image with the new `VISTA_ENABLE_TASKMAN=1` default would
+  cold-start TaskMan **without** the prune and lock the license. The fix and the flag flip
+  must ship in the same rebuilt image. (The `TMTUNE` logic was validated at runtime via the
+  driver; the rebuilt image itself has not yet been built/booted here — do so before release.)
+- **Prevents:** TaskMan license exhaustion (STARTUP listeners pruned + submanager pool capped),
+  and a failed routine import (E14).
 - **Verified by:** on boot, the RPC port becomes reachable (Phase 11 check 5); `make license`
   attributes processes to services.
 
@@ -712,7 +716,7 @@ vista-iris/
 | Item | Status | Note / direction |
 |---|---|---|
 | **HL7 `#870` MLLP listener on 5026** | **Deferred** | The `HL EDIT LOGICAL LINKS` List-Manager UI can't be pexpect-driven (E7); needs a programmatic `#870` (FileMan/global) approach. Port 5026 is published but unbacked. |
-| **TaskMan** | **Off by default** | Exhausts the 8-unit Community license (~37 procs); needs a larger license. |
+| **TaskMan** | **On by default** | Safe via `TMTUNE` (un-queue #19.2 STARTUP listeners + cap #14.7) → ~2 LU. Without that it exhausts the 8-unit license (~37 procs). |
 | **`make test` (M-Unit)** | **Stub** | No automated M tests run yet (`D EN^%ut(...)` is a TODO). |
 | **`make lint` XINDEX** | **Partial/stub** | `shellcheck` runs on wrappers; in-instance XINDEX over changed routines is a TODO. |
 | **`make verify` depth** | **Partial** | Ports + Kernel/`^DPT` data gated; the TaskMan check is non-gating ([§10](#10-runtime-contract--verification)). |
@@ -761,7 +765,8 @@ log, recorded as historical color, not a build invariant.
 | Service toggles | `VISTA_ENABLE_RPC=1`, `VISTA_RPC_PORT=9430`, `VISTA_ENABLE_TASKMAN=0`, `VISTA_ENABLE_HL7=0` |
 | License caps | **8 units**, 25 max connections, ~20-core cap |
 | License: default (RPC only) | **2 / 8** *(measured)* |
-| License: TaskMan on | **8 / 8** → `LICENSE LIMIT EXCEEDED` (~37 processes) *(measured)* |
+| License: TaskMan on, TMTUNE prune+cap | **~2 / 8** — healthy, TaskMan running *(measured 2026-06-20)* |
+| License: TaskMan on, uncapped/un-pruned | **8 / 8** → `LICENSE LIMIT EXCEEDED` (~37 processes) *(measured)* |
 | PATIENT (#2) identifiers | `.01` NAME · `.02` SEX · `.03` DOB · `.09` SSN · `.301` SC? · `391` TYPE · `1901` VETERAN |
 | Sample patients | `PATIENT,{ALPHA,BETA,GAMMA}TEST`, SSN `666-00-000{1,2,3}` |
 | Preflight disk | ≥ 40 GB (build) · ≥ 25 GB (run prebuilt) |

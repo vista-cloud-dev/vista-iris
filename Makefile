@@ -61,7 +61,7 @@ export MIN_DISK_GB
 # Service toggles (manage the IRIS Community license budget). Passed to `run`;
 # also settable in docker-compose.yml or the host env. See `make license`.
 ENABLE_RPC     ?= 1
-ENABLE_TASKMAN ?= 0
+ENABLE_TASKMAN ?= 1
 ENABLE_HL7     ?= 0
 
 .DEFAULT_GOAL := help
