@@ -433,11 +433,13 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
   from-scratch `make build` was unavailable here — airgapped, no source/base-image pull). The
   rebuilt image booted with the new default `VISTA_ENABLE_TASKMAN=1` and measured: **2/8 LU,
   TaskMan running (`TM=1`), #14.7 capped (JL=4/MIN=0/RET=60), all SQ=STARTUP options pruned,
-  0 `License limit exceeded`**. The `%ZSTART.mac` compiled clean. **⚠ Release action:** the
-  *currently published* `:latest` still predates the prune — re-run the from-scratch CI build
-  (`make build` / `.github/workflows/publish.yml`) and republish so `make run`/`make pull`
-  consumers get the prune. (Same `startup.script` → same Phase 9 → same `%ZSTART`, so the
-  from-scratch image boots identically to the derived one tested here.)
+  0 `License limit exceeded`**. The `%ZSTART.mac` compiled clean.
+- **CI republish (2026-06-20): DONE + GREEN.** `publish.yml` run `27878269143` (~26.5 min):
+  the **from-scratch build + boot-`verify` passed on both `amd64` and `arm64`** (the `verify`
+  stage boots the from-scratch candidate and smoke-tests its ports before promote), then
+  `promote` retagged **`:latest`**. So the *published* image — not just the derived test image
+  — boots default `VISTA_ENABLE_TASKMAN=1` within budget. `make run`/`make pull` consumers now
+  get the prune.
 - **Prevents:** TaskMan license exhaustion (STARTUP listeners pruned + submanager pool capped),
   and a failed routine import (E14).
 - **Verified by:** on boot, the RPC port becomes reachable (Phase 11 check 5); `make license`
