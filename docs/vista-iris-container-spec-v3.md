@@ -361,10 +361,11 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
     scheduled STARTUP job (~37 persistent processes) and exhausts the 8-unit license — which
     starved Phase 8 with `LICENSE LIMIT EXCEEDED` (E16). The scheduled options above remain as
     *dormant* config; the RPC Broker is started at boot by `%ZSTART` (Phase 9), one process.
-    (If TaskMan is later *deliberately* enabled via `VISTA_ENABLE_TASKMAN=1`, the `%ZSTART`
-    hook's `TMTUNE` first caps #14.7 JOB LIMIT to the license — see
-    [Phase 9](#phase-9--service-startup-hook--toggles) — so the storm queues within budget
-    rather than locking out logins.)
+    (The `%ZSTART` hook's `TMTUNE` caps #14.7 JOB LIMIT when TaskMan is enabled, but
+    **measured 2026-06-20 that cap alone does NOT prevent this exhaustion** — the STARTUP
+    options `JOB` persistent listeners outside JOB LIMIT. Enabling `VISTA_ENABLE_TASKMAN=1`
+    safely additionally requires pruning those scheduled STARTUP options; see
+    [Phase 9](#phase-9--service-startup-hook--toggles). The flag stays `0`.)
   - **Release every menu session cleanly, one at a time.** A session that enters a menu must
     escape to the programmer prompt → `halt` → wait for EOF so IRIS deregisters its license
     slot synchronously; force-closing leaves the slot held and the next connect hits
@@ -413,15 +414,23 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
   runs `TMTUNE` **before** `JOB ^ZTMB`: it reads `$SYSTEM.License.KeyLicenseUnits()` and sets
   TASKMAN SITE PARAMETERS (#14.7) **TASKMAN JOB LIMIT** (fld 6) = `clamp(2, LU−4, 24)`,
   **SUBMANAGER RETENTION TIME** (fld 5) = 60, and **MIN SUBMANAGER CNT** (fld 11) = 0 via
-  `FILE^DIE` (so the idle footprint is just the Manager = 1 LU). Because JOB LIMIT caps *total
-  active processes* before TaskMan jobs another submanager, the cold-start storm (Phase 7's
-  ~37-process figure) degrades to **queueing within budget** instead of `LICENSE LIMIT
-  EXCEEDED` lockout. On a non-Community (large) license it clamps to the Kernel default 24; if
-  the license can't be read it leaves #14.7 untouched (fail-safe). It does **not** make every
-  scheduled STARTUP option run at once — heavy ones simply wait their turn. (Default VistA
-  ships JOB LIMIT = 24, which on an 8-unit box would let submanagers exhaust the pool.)
-- **Prevents:** TaskMan license exhaustion (services off by default; and when enabled, the
-  `TMTUNE` cap converts exhaustion into graceful queueing) and a failed routine import (E14).
+  `FILE^DIE`. On a non-Community (large) license it clamps to the Kernel default 24; if the
+  license can't be read it leaves #14.7 untouched (fail-safe). This bounds TaskMan's
+  **submanager pool** (so a flood of queued tasks can't spawn 24 submanagers).
+- **⚠ MEASURED (2026-06-20): the cap is NOT sufficient to enable TaskMan on the 8-unit
+  license.** Live test on this image (prebuilt, IRIS-for-Health base): TaskMan **OFF** = 2 LU
+  used / healthy; TaskMan **ON, uncapped** = `License limit exceeded`, instance locked;
+  TaskMan **ON with the TMTUNE cap (JOB LIMIT=4)** = **still** `License limit exceeded`,
+  locked. Root cause: cold-start fires the scheduled **STARTUP options** (RPC listener, HL7
+  Link Manager, …), each of which `JOB`s its **own persistent listener** *outside* TaskMan's
+  JOB LIMIT governance — so they exhaust the budget regardless of the submanager cap.
+  Therefore **`VISTA_ENABLE_TASKMAN` stays `0`**; enabling it within 8 LU additionally
+  requires **pruning the scheduled STARTUP options** in OPTION SCHEDULING (#19.2) so the
+  cold-start launches few/no persistent listeners. `TMTUNE` remains in place as a sound
+  submanager-pool cap but is necessary-not-sufficient.
+- **Prevents:** TaskMan license exhaustion (services off by default). The `TMTUNE` cap bounds
+  the submanager pool but does **not** by itself make TaskMan safe to enable (see ⚠ above).
+  Also prevents a failed routine import (E14).
 - **Verified by:** on boot, the RPC port becomes reachable (Phase 11 check 5); `make license`
   attributes processes to services.
 
