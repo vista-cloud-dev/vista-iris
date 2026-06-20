@@ -411,8 +411,9 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
   license-management surface.
 - **License-aware TaskMan cap (`TMTUNE`).** When `VISTA_ENABLE_TASKMAN` is turned on, the hook
   runs `TMTUNE` **before** `JOB ^ZTMB`: it reads `$SYSTEM.License.KeyLicenseUnits()` and sets
-  TASKMAN SITE PARAMETERS (#14.7) **TASKMAN JOB LIMIT** (fld 6) = `clamp(2, LU−4, 24)` and
-  **SUBMANAGER RETENTION TIME** (fld 5) = 60 via `FILE^DIE`. Because JOB LIMIT caps *total
+  TASKMAN SITE PARAMETERS (#14.7) **TASKMAN JOB LIMIT** (fld 6) = `clamp(2, LU−4, 24)`,
+  **SUBMANAGER RETENTION TIME** (fld 5) = 60, and **MIN SUBMANAGER CNT** (fld 11) = 0 via
+  `FILE^DIE` (so the idle footprint is just the Manager = 1 LU). Because JOB LIMIT caps *total
   active processes* before TaskMan jobs another submanager, the cold-start storm (Phase 7's
   ~37-process figure) degrades to **queueing within budget** instead of `LICENSE LIMIT
   EXCEEDED` lockout. On a non-Community (large) license it clamps to the Kernel default 24; if
