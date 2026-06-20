@@ -361,6 +361,10 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
     scheduled STARTUP job (~37 persistent processes) and exhausts the 8-unit license — which
     starved Phase 8 with `LICENSE LIMIT EXCEEDED` (E16). The scheduled options above remain as
     *dormant* config; the RPC Broker is started at boot by `%ZSTART` (Phase 9), one process.
+    (If TaskMan is later *deliberately* enabled via `VISTA_ENABLE_TASKMAN=1`, the `%ZSTART`
+    hook's `TMTUNE` first caps #14.7 JOB LIMIT to the license — see
+    [Phase 9](#phase-9--service-startup-hook--toggles) — so the storm queues within budget
+    rather than locking out logins.)
   - **Release every menu session cleanly, one at a time.** A session that enters a menu must
     escape to the programmer prompt → `halt` → wait for EOF so IRIS deregisters its license
     slot synchronously; force-closing leaves the slot held and the next connect hits
@@ -402,11 +406,21 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
 - **Actions:** install a `%ZSTART` routine **via the `%Routine` class API** (not a file
   import — `.m`/`.mac` `Load` hits #5840, E14). IRIS calls `SYSTEM^%ZSTART` once at every
   start; the hook reads the environment toggles and starts **only enabled** services:
-  RPC Broker = `JOB ZISTCP^XWBTCPM1(<port>)` (one process); TaskMan = `JOB ^ZTMB` (gated off);
-  HL7 = best-effort `STARTALL^HLCSLM` (gated off). This is the runtime license-management
-  surface.
-- **Prevents:** TaskMan license exhaustion (services off unless explicitly enabled) and a
-  failed routine import (E14).
+  RPC Broker = `JOB ZISTCP^XWBTCPM1(<port>)` (one process); TaskMan = `D TMTUNE JOB ^ZTMB`
+  (gated off); HL7 = best-effort `STARTALL^HLCSLM` (gated off). This is the runtime
+  license-management surface.
+- **License-aware TaskMan cap (`TMTUNE`).** When `VISTA_ENABLE_TASKMAN` is turned on, the hook
+  runs `TMTUNE` **before** `JOB ^ZTMB`: it reads `$SYSTEM.License.KeyLicenseUnits()` and sets
+  TASKMAN SITE PARAMETERS (#14.7) **TASKMAN JOB LIMIT** (fld 6) = `clamp(2, LU−4, 24)` and
+  **SUBMANAGER RETENTION TIME** (fld 5) = 60 via `FILE^DIE`. Because JOB LIMIT caps *total
+  active processes* before TaskMan jobs another submanager, the cold-start storm (Phase 7's
+  ~37-process figure) degrades to **queueing within budget** instead of `LICENSE LIMIT
+  EXCEEDED` lockout. On a non-Community (large) license it clamps to the Kernel default 24; if
+  the license can't be read it leaves #14.7 untouched (fail-safe). It does **not** make every
+  scheduled STARTUP option run at once — heavy ones simply wait their turn. (Default VistA
+  ships JOB LIMIT = 24, which on an 8-unit box would let submanagers exhaust the pool.)
+- **Prevents:** TaskMan license exhaustion (services off by default; and when enabled, the
+  `TMTUNE` cap converts exhaustion into graceful queueing) and a failed routine import (E14).
 - **Verified by:** on boot, the RPC port becomes reachable (Phase 11 check 5); `make license`
   attributes processes to services.
 
