@@ -427,12 +427,17 @@ lives in the log (§5 discoveries, §6 errors); here the "why" is one line.
   not the STARTUP listeners); **ON, STARTUP-pruned + capped** = **2 LU / healthy, TaskMan
   running, log clean** (verified on two fresh instances). So the prune is the load-bearing fix;
   the cap is the complementary submanager bound.
-- **⚠ The published image must be rebuilt + republished for this to take effect.** The prune
-  lives in the built `%ZSTART` routine; the *currently published* `:latest` predates it.
-  `make run`/`make pull` on the old image with the new `VISTA_ENABLE_TASKMAN=1` default would
-  cold-start TaskMan **without** the prune and lock the license. The fix and the flag flip
-  must ship in the same rebuilt image. (The `TMTUNE` logic was validated at runtime via the
-  driver; the rebuilt image itself has not yet been built/booted here — do so before release.)
+- **Rebuilt-image boot-test (2026-06-20): PASS.** The prune lives in the built `%ZSTART`, so
+  the image must be rebuilt + republished. Validated by a **derived rebuild** (`FROM` the
+  published image + re-run Phase 9 to regenerate `%ZSTART` from the new `startup.script`; the
+  from-scratch `make build` was unavailable here — airgapped, no source/base-image pull). The
+  rebuilt image booted with the new default `VISTA_ENABLE_TASKMAN=1` and measured: **2/8 LU,
+  TaskMan running (`TM=1`), #14.7 capped (JL=4/MIN=0/RET=60), all SQ=STARTUP options pruned,
+  0 `License limit exceeded`**. The `%ZSTART.mac` compiled clean. **⚠ Release action:** the
+  *currently published* `:latest` still predates the prune — re-run the from-scratch CI build
+  (`make build` / `.github/workflows/publish.yml`) and republish so `make run`/`make pull`
+  consumers get the prune. (Same `startup.script` → same Phase 9 → same `%ZSTART`, so the
+  from-scratch image boots identically to the derived one tested here.)
 - **Prevents:** TaskMan license exhaustion (STARTUP listeners pruned + submanager pool capped),
   and a failed routine import (E14).
 - **Verified by:** on boot, the RPC port becomes reachable (Phase 11 check 5); `make license`
