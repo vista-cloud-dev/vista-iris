@@ -1,4 +1,4 @@
-> **Superseded by [`vista-iris-container-spec-v3.md`](vista-iris-container-spec-v3.md) (kept for history).**
+> **Superseded by [`vista-iris-container-spec-v3.md`](../design/vista-iris-container-spec-v3.md) (kept for history).**
 
 # VistA on IRIS — Containerized Instance Specification (v2)
 

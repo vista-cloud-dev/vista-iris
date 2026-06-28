@@ -6,8 +6,8 @@ refactor, not a rewrite:** the build still produces a functionally identical
 instance (same routines/globals, FileMan/Kernel install, domain/institution/
 box:volume, ports, test users, sample patients, license posture).
 
-Governing reference: `docs/historical/vista-iris-implementation-log.md` (§5 D1–D19,
-§6 E1–E19, §8 Phase blueprint). Normative spec: `docs/vista-iris-container-spec-v3.md`.
+Governing reference: `docs/archive/vista-iris-implementation-log.md` (§5 D1–D19,
+§6 E1–E19, §8 Phase blueprint). Normative spec: `docs/design/vista-iris-container-spec-v3.md`.
 
 ---
 

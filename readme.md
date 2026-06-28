@@ -106,7 +106,7 @@ container running, connect VS Code straight to it and edit routines in place
 (**save = compile on the server** — no export/import) using the InterSystems ObjectScript
 extension and the repo's `vista-iris.code-workspace`.
 
-→ **[Editing VistA code in VS Code](docs/vscode-vista-iris-guide.md)** — three one-time
+→ **[Editing VistA code in VS Code](docs/guides/vscode-vista-iris-guide.md)** — three one-time
 steps to a live VS Code ↔ IRIS editing setup, plus running code and troubleshooting.
 
 ---
@@ -148,6 +148,6 @@ a native runner, smoke-tests it, and only then moves `:latest`.
 
 ## Documentation
 
-- [`docs/vista-iris-container-spec-v3.md`](docs/vista-iris-container-spec-v3.md) — canonical build & runtime spec
-- [`docs/vscode-vista-iris-guide.md`](docs/vscode-vista-iris-guide.md) — connect VS Code to the container and edit VistA code (VS Code ↔ IRIS)
+- [`docs/design/vista-iris-container-spec-v3.md`](docs/design/vista-iris-container-spec-v3.md) — canonical build & runtime spec
+- [`docs/guides/vscode-vista-iris-guide.md`](docs/guides/vscode-vista-iris-guide.md) — connect VS Code to the container and edit VistA code (VS Code ↔ IRIS)
 - [`scripts/vista/REFACTOR-NOTES.md`](scripts/vista/REFACTOR-NOTES.md) — install-driver architecture (phase-aligned, idempotent, standalone-runnable)

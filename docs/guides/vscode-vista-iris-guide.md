@@ -19,7 +19,7 @@ Three one-time steps, then you're editing.
 ## 1. Have the container running
 
 The web port **52773** (the REST API the extension talks to) must be published — the
-`podman run` in the [readme](../readme.md) already does this. Check:
+`podman run` in the [readme](../../readme.md) already does this. Check:
 
 ```bash
 podman ps                                                                            # the `vista` container is Up
@@ -69,7 +69,7 @@ If you only pulled the image and don't have the repo checked out, save this as
 
 These are the image defaults. This is a local, fictitious-data container, so keeping the
 password right in the file is fine. If you built the image with custom `VISTA_USERNAME` /
-`VISTA_PASSWORD` (see [`scripts/vista/config.py`](../scripts/vista/config.py)), use those.
+`VISTA_PASSWORD` (see [`scripts/vista/config.py`](../../scripts/vista/config.py)), use those.
 
 ---
 
